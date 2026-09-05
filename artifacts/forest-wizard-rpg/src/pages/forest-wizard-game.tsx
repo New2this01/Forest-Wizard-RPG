@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { ChevronUp, Gem, LockKeyhole, Map as MapIcon, Pause, Play, RotateCcw, Shield, Smartphone, Sparkles, WandSparkles, X } from 'lucide-react';
+import { Backpack as BackpackIcon, ChevronUp, Gem, LockKeyhole, Map as MapIcon, Pause, Play, RotateCcw, Shield, Smartphone, Sparkles, WandSparkles, X } from 'lucide-react';
 
 type Rarity = 'Common' | 'Uncommon' | 'Rare' | 'Epic' | 'Legendary' | 'Mythic';
 type EnemyKind = 'slime' | 'goblin';
@@ -7,7 +7,7 @@ type LootKind = 'wand' | 'robe';
 type Vec = { x: number; y: number };
 type UiState = {
   hp: number; maxHp: number; mana: number; maxMana: number; xp: number; nextXp: number;
-  level: number; gold: number; weapon: string; robe: string; damage: number;
+  level: number; gold: number; weapon: string; robe: string; damage: number; weaponBonus: number; robeBonus: number;
 };
 type Obstacle = { x: number; y: number; r: number; type: 'tree' | 'rock' | 'bush' };
 type Enemy = {
@@ -15,12 +15,13 @@ type Enemy = {
   speed: number; aggro: number; hitCooldown: number; wander: number; angle: number; hurt: number;
 };
 type Projectile = { x: number; y: number; vx: number; vy: number; life: number; damage: number; targetId: number | null };
+type Gear = { id: number; kind: LootKind; name: string; rarity: Rarity; bonus: number; equipped: boolean };
 type Pickup = { id: number; x: number; y: number; kind: 'gold' | LootKind; amount: number; name?: string; rarity?: Rarity; bonus?: number; bob: number };
 type Particle = { x: number; y: number; vx: number; vy: number; life: number; maxLife: number; color: string; size: number };
 type FloatText = { x: number; y: number; value: string; color: string; life: number; maxLife: number };
 type GameState = {
   player: UiState & { x: number; y: number; r: number; lastDx: number; lastDy: number; hurt: number };
-  enemies: Enemy[]; projectiles: Projectile[]; pickups: Pickup[]; particles: Particle[]; texts: FloatText[];
+  enemies: Enemy[]; projectiles: Projectile[]; pickups: Pickup[]; backpack: Gear[]; particles: Particle[]; texts: FloatText[];
   obstacles: Obstacle[]; elapsed: number; spawnId: number; zoneId: number; bounds: { width: number; height: number };
 };
 
@@ -74,7 +75,7 @@ function createObstacles(zoneId = 1): Obstacle[] {
   return obstacles;
 }
 
-function makeGame(zoneId = 1, playerOverrides: Partial<GameState['player']> = {}): GameState {
+function makeGame(zoneId = 1, playerOverrides: Partial<GameState['player']> = {}, backpack: Gear[] = []): GameState {
   const zone = ZONES[zoneId - 1] ?? ZONES[0];
   const bounds = ZONE_BOUNDS[zone.id] ?? WORLD;
   const random = seeded(912 + zoneId * 139);
@@ -96,8 +97,8 @@ function makeGame(zoneId = 1, playerOverrides: Partial<GameState['player']> = {}
     });
   });
   return {
-    player: { r: 17, hp: 100, maxHp: 100, mana: 100, maxMana: 100, xp: 0, nextXp: 100, level: 1, gold: 42, weapon: 'Ashwood Wand', robe: 'Mossweave Robe', damage: 22, ...playerOverrides, x: bounds.width / 2, y: bounds.height / 2, lastDx: 1, lastDy: 0, hurt: 0 },
-    enemies, projectiles: [], pickups: [], particles: [], texts: [], obstacles, elapsed: 0, spawnId: 100, zoneId: zone.id, bounds,
+    player: { r: 17, hp: 100, maxHp: 100, mana: 100, maxMana: 100, xp: 0, nextXp: 100, level: 1, gold: 42, weapon: 'Ashwood Wand', robe: 'Mossweave Robe', damage: 22, weaponBonus: 0, robeBonus: 0, ...playerOverrides, x: bounds.width / 2, y: bounds.height / 2, lastDx: 1, lastDy: 0, hurt: 0 },
+    enemies, projectiles: [], pickups: [], backpack, particles: [], texts: [], obstacles, elapsed: 0, spawnId: 100, zoneId: zone.id, bounds,
   };
 }
 
@@ -131,10 +132,12 @@ export default function ForestWizardGame() {
   const keysRef = useRef<Set<string>>(new Set());
   const inputRef = useRef({ x: 0, y: 0 });
   const pauseRef = useRef(false);
-  const apiRef = useRef<{ cast: () => void; reset: () => void; changeZone: (zoneId: number) => void } | null>(null);
+  const apiRef = useRef<{ cast: () => void; reset: () => void; changeZone: (zoneId: number) => void; equip: (gearId: number) => void } | null>(null);
   const [ui, setUi] = useState<UiState>(gameRef.current.player);
   const [paused, setPaused] = useState(false);
   const [zonePickerOpen, setZonePickerOpen] = useState(false);
+  const [backpackOpen, setBackpackOpen] = useState(false);
+  const [backpack, setBackpack] = useState<Gear[]>(gameRef.current.backpack);
   const [unlockedZones, setUnlockedZones] = useState<number[]>([1]);
   const [lootToasts, setLootToasts] = useState<Array<{ id: number; text: string; rarity?: Rarity; color?: string }>>([]);
   const [levelFlash, setLevelFlash] = useState<number | null>(null);
@@ -194,6 +197,7 @@ export default function ForestWizardGame() {
       gameRef.current = makeGame(game.zoneId);
       Object.assign(game, gameRef.current);
       setUi(game.player);
+      setBackpack([]);
       setLootToasts([]);
       setLevelFlash(null);
       pauseRef.current = false;
@@ -214,17 +218,46 @@ export default function ForestWizardGame() {
         weapon: previousPlayer.weapon,
         robe: previousPlayer.robe,
         damage: previousPlayer.damage,
-      });
+        weaponBonus: previousPlayer.weaponBonus,
+        robeBonus: previousPlayer.robeBonus,
+      }, game.backpack);
       gameRef.current = next;
       Object.assign(game, next);
       setUi(game.player);
+      setBackpack([...game.backpack]);
       setLevelFlash(null);
       setZonePickerOpen(false);
       pauseRef.current = false;
       setPaused(false);
       addToast(`Entered ${ZONES[zoneId - 1].name}`, undefined, '#b9d79d');
     };
-    apiRef.current = { cast, reset, changeZone };
+    const equip = (gearId: number) => {
+      const item = game.backpack.find((gear) => gear.id === gearId);
+      if (!item) return;
+      const currentBonus = item.kind === 'wand' ? game.player.weaponBonus : game.player.robeBonus;
+      if (item.equipped) return;
+      if (item.bonus <= currentBonus) {
+        addToast(`${item.name} is weaker than your current ${item.kind}`, item.rarity, '#d89481');
+        return;
+      }
+      game.backpack.forEach((gear) => { if (gear.kind === item.kind) gear.equipped = false; });
+      item.equipped = true;
+      if (item.kind === 'wand') {
+        game.player.weaponBonus = item.bonus;
+        game.player.damage = 22 + item.bonus;
+        game.player.weapon = item.name;
+      } else {
+        const healthGain = item.bonus - game.player.robeBonus;
+        game.player.robeBonus = item.bonus;
+        game.player.maxHp += healthGain;
+        game.player.hp = Math.min(game.player.maxHp, game.player.hp + healthGain);
+        game.player.robe = item.name;
+      }
+      setUi({ ...game.player });
+      setBackpack([...game.backpack]);
+      addToast(`${item.name} equipped`, item.rarity, rarityColors[item.rarity]);
+    };
+    apiRef.current = { cast, reset, changeZone, equip };
 
     const update = (dt: number) => {
       if (pauseRef.current) return;
@@ -295,12 +328,11 @@ export default function ForestWizardGame() {
           pickup.x = player.x; pickup.y = player.y; pickup.bob = 0;
           if (pickup.kind === 'gold') { player.gold += pickup.amount; addToast(`Picked up ${pickup.amount} gold`, undefined, '#f1c861'); }
           else {
-            const oldBonus = pickup.kind === 'wand' ? player.damage - 22 : player.maxHp - 100;
-            if ((pickup.bonus ?? 0) > oldBonus) {
-              if (pickup.kind === 'wand') { player.damage = 22 + (pickup.bonus ?? 0); player.weapon = pickup.name ?? 'New Wand'; }
-              else { player.maxHp += pickup.bonus ?? 0; player.hp = Math.min(player.maxHp, player.hp + (pickup.bonus ?? 0)); player.robe = pickup.name ?? 'New Robe'; }
-              addToast(`${pickup.name} equipped`, pickup.rarity, rarityColors[pickup.rarity ?? 'Common']);
-            } else addToast(`${pickup.name} found`, pickup.rarity, rarityColors[pickup.rarity ?? 'Common']);
+            const gear: Gear = { id: pickup.id, kind: pickup.kind, name: pickup.name ?? 'Mysterious Gear', rarity: pickup.rarity ?? 'Common', bonus: pickup.bonus ?? 0, equipped: false };
+            game.backpack.push(gear);
+            const currentBonus = gear.kind === 'wand' ? player.weaponBonus : player.robeBonus;
+            addToast(`${gear.name} added to backpack${gear.bonus > currentBonus ? ' · better gear' : ''}`, gear.rarity, rarityColors[gear.rarity]);
+            setBackpack([...game.backpack]);
           }
           burst(player.x, player.y, pickup.kind === 'gold' ? '#f1c861' : rarityColors[pickup.rarity ?? 'Common'], 10);
           pickup.amount = 0;
@@ -405,7 +437,7 @@ export default function ForestWizardGame() {
     const loop = (now: number) => {
       const dt = Math.min((now - previous) / 1000, .05); previous = now;
       update(dt); draw();
-      if (now - lastUi > 100) { setUi({ ...game.player }); lastUi = now; }
+      if (now - lastUi > 100) { setUi({ ...game.player }); setBackpack([...game.backpack]); lastUi = now; }
       frame = requestAnimationFrame(loop);
     };
     frame = requestAnimationFrame(loop);
@@ -435,6 +467,9 @@ export default function ForestWizardGame() {
   const currentZone = ZONES[gameRef.current.zoneId - 1] ?? ZONES[0];
   const openZonePicker = () => { pauseRef.current = true; setPaused(true); setZonePickerOpen(true); };
   const closeZonePicker = () => { setZonePickerOpen(false); pauseRef.current = false; setPaused(false); };
+  const openBackpack = () => { pauseRef.current = true; setPaused(true); setBackpackOpen(true); };
+  const closeBackpack = () => { setBackpackOpen(false); pauseRef.current = false; setPaused(false); };
+  const currentGearBonus = (item: Gear) => item.kind === 'wand' ? ui.weaponBonus : ui.robeBonus;
   const selectZone = (zoneId: number) => {
     const target = ZONES[zoneId - 1];
     if (!target) return;
@@ -501,6 +536,7 @@ export default function ForestWizardGame() {
         <div className="loot-stack" style={{ position: 'absolute', top: 124, right: 22, width: 248, display: 'flex', flexDirection: 'column', gap: 7 }}>
           {lootToasts.map((toast) => <div className="loot-toast glass-panel" key={toast.id} data-testid={`toast-loot-${toast.id}`} style={{ borderRadius: 11, padding: '9px 11px', color: toast.color ?? '#ecdca9', fontFamily: 'var(--app-font-mono)', fontSize: 10, borderLeft: `3px solid ${toast.color ?? '#f1c861'}` }}><Sparkles size={12} style={{ display: 'inline', marginRight: 6, verticalAlign: -2 }} />{toast.rarity ? `${toast.rarity} · ` : ''}{toast.text}</div>)}
         </div>
+         <button className="backpack-button" data-testid="button-backpack" onClick={openBackpack}><BackpackIcon size={16} /><span>BACKPACK</span><b>{backpack.length}</b></button>
         {levelFlash !== null && <div className="level-flare" data-testid="status-level-up" style={{ position: 'absolute', left: '50%', top: '47%', transform: 'translate(-50%, -50%)', textAlign: 'center', pointerEvents: 'none' }}><ChevronUp size={28} color="#f7dc86" style={{ margin: '0 auto -6px' }} /><div style={{ color: '#ffe6a0', fontFamily: 'var(--app-font-serif)', fontSize: 36, textShadow: '0 2px 18px rgba(248,201,90,.55)' }}>Level {levelFlash}</div><div style={{ color: '#d6e3bc', fontFamily: 'var(--app-font-mono)', fontSize: 10, letterSpacing: '.14em' }}>THE GROVE KNOWS YOUR NAME</div></div>}
          <div className="movement-hint" style={{ position: 'absolute', top: 96, left: 24, color: 'rgba(220,232,196,.58)', fontFamily: 'var(--app-font-mono)', fontSize: 10, letterSpacing: '.08em' }}>WASD / ARROWS TO MOVE · SPACE TO CAST</div>
         <div className="touch-controls">
@@ -527,6 +563,29 @@ export default function ForestWizardGame() {
              </div>
            </section>
          </div>}
+          {backpackOpen && <div className="backpack-scrim" data-testid="backpack-panel">
+            <section className="backpack-modal glass-panel" role="dialog" aria-modal="true" aria-labelledby="backpack-title">
+              <div className="backpack-head">
+                <div><div className="zone-kicker">YOUR GEAR</div><h2 id="backpack-title">Backpack</h2><p>Gear picked up from fallen enemies stays here. Equip a stronger wand or robe whenever you find one.</p></div>
+                <button className="hud-button" onClick={closeBackpack} aria-label="Close backpack"><X size={17} /></button>
+              </div>
+              <div className="equipped-summary">
+                <div><span>WAND</span><strong>{ui.weapon}</strong><small>POWER {ui.damage}</small></div>
+                <div><span>ROBE</span><strong>{ui.robe}</strong><small>+{ui.robeBonus} HEALTH</small></div>
+              </div>
+              <div className="gear-list">
+                {backpack.length === 0 && <div className="empty-backpack"><BackpackIcon size={24} /><strong>Your backpack is empty</strong><span>Defeat slimes and goblins to find gear.</span></div>}
+                {backpack.map((item) => {
+                  const isBetter = item.bonus > currentGearBonus(item);
+                  return <div className="gear-card" key={item.id} style={{ borderColor: `${rarityColors[item.rarity]}55` }}>
+                    <div className="gear-icon" style={{ color: rarityColors[item.rarity] }}>{item.kind === 'wand' ? <WandSparkles size={18} /> : <Shield size={18} />}</div>
+                    <div className="gear-copy"><strong style={{ color: rarityColors[item.rarity] }}>{item.name}</strong><span>{item.rarity} · {item.kind === 'wand' ? `+${item.bonus} power` : `+${item.bonus} health`}</span>{isBetter && !item.equipped && <em>STRONGER THAN EQUIPPED</em>}</div>
+                    <button className={`gear-equip ${item.equipped ? 'is-equipped' : ''}`} disabled={item.equipped || !isBetter} onClick={() => apiRef.current?.equip(item.id)}>{item.equipped ? 'EQUIPPED' : isBetter ? 'EQUIP' : 'WEAKER'}</button>
+                  </div>;
+                })}
+              </div>
+            </section>
+          </div>}
         {paused && <div className="pause-scrim" style={{ position: 'absolute', inset: 0, display: 'grid', placeItems: 'center', zIndex: 15 }}><div className="glass-panel" style={{ width: 'min(360px, calc(100% - 40px))', padding: 28, textAlign: 'center', borderRadius: 18 }}><div style={{ color: '#f3d581', fontFamily: 'var(--app-font-serif)', fontSize: 32, marginBottom: 5 }}>A quiet moment</div><p style={{ color: '#bed0b3', fontFamily: 'var(--app-font-mono)', fontSize: 11, lineHeight: 1.7, margin: '0 0 19px' }}>The clearing waits beneath the moon.</p><div style={{ display: 'flex', justifyContent: 'center', gap: 9 }}><button className="hud-button" data-testid="button-resume" onClick={togglePause} style={{ width: 120, display: 'flex', gap: 7, fontSize: 12 }}><Play size={14} /> Resume</button><button className="hud-button" data-testid="button-reset" onClick={() => apiRef.current?.reset()} aria-label="Reset adventure"><RotateCcw size={15} /></button></div></div></div>}
       </div>
     </main>

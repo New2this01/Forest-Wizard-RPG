@@ -152,6 +152,43 @@
 .zone-copy em { color: #d1937f; font-style: normal; font-size: 9px; }
 .zone-action { display: inline-flex; align-items: center; gap: 4px; flex: 0 0 auto; color: #f0ce70; font: 10px var(--app-font-mono); letter-spacing: .05em; }
 .zone-action.needs-gold { color: #d89481; }
+.backpack-button {
+  position: absolute; left: 50%; bottom: 22px; transform: translateX(-50%); z-index: 12;
+  display: inline-flex; align-items: center; gap: 7px; padding: 9px 12px; border-radius: 11px;
+  color: #f2dfa0; background: rgba(13, 47, 45, .9); border: 1px solid rgba(214, 192, 104, .32);
+  box-shadow: 0 10px 24px rgba(2, 17, 19, .22); font: 10px var(--app-font-mono); letter-spacing: .08em;
+  cursor: pointer; transition: transform .16s ease, background .16s ease;
+}
+.backpack-button:hover { transform: translateX(-50%) translateY(-1px); background: rgba(35, 81, 70, .95); }
+.backpack-button b { display: grid; place-items: center; min-width: 18px; height: 18px; padding: 0 4px; border-radius: 99px; color: #19352f; background: #f2d47b; font-size: 9px; }
+.backpack-scrim {
+  position: absolute; inset: 0; z-index: 30; display: grid; place-items: center;
+  padding: 24px; background: rgba(3, 18, 20, .68); backdrop-filter: blur(9px);
+}
+.backpack-modal { width: min(560px, 100%); max-height: min(680px, calc(100% - 20px)); overflow: auto; padding: 22px; border-radius: 19px; box-shadow: 0 24px 70px rgba(0,0,0,.38); }
+.backpack-head { display: flex; justify-content: space-between; gap: 18px; align-items: start; }
+.backpack-head h2 { margin: 4px 0; color: #f4d783; font: 700 27px var(--app-font-serif); }
+.backpack-head p { max-width: 390px; margin: 0 0 16px; color: #b6cdb2; font: 11px/1.55 var(--app-font-mono); }
+.equipped-summary { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 12px; }
+.equipped-summary > div { display: grid; gap: 3px; padding: 10px 12px; border-radius: 12px; background: rgba(12, 48, 46, .62); border: 1px solid rgba(180, 204, 157, .13); }
+.equipped-summary span { color: #8fc9ad; font: 9px var(--app-font-mono); letter-spacing: .12em; }
+.equipped-summary strong { overflow: hidden; color: #f0df9e; font: 600 12px var(--app-font-sans); text-overflow: ellipsis; white-space: nowrap; }
+.equipped-summary small { color: #a7c1ae; font: 9px var(--app-font-mono); }
+.gear-list { display: grid; gap: 8px; }
+.gear-card { display: flex; align-items: center; gap: 10px; padding: 10px; border: 1px solid; border-radius: 13px; background: rgba(12, 48, 46, .58); }
+.gear-icon { display: grid; place-items: center; flex: 0 0 36px; width: 36px; height: 36px; border-radius: 10px; background: rgba(2, 17, 19, .32); }
+.gear-copy { display: grid; flex: 1; min-width: 0; gap: 2px; }
+.gear-copy strong { overflow: hidden; font: 600 12px var(--app-font-sans); text-overflow: ellipsis; white-space: nowrap; }
+.gear-copy span { color: #b4c8b5; font: 10px var(--app-font-mono); }
+.gear-copy em { color: #f2cc70; font: 9px var(--app-font-mono); font-style: normal; letter-spacing: .05em; }
+.gear-equip { flex: 0 0 auto; padding: 8px 9px; border: 1px solid rgba(238, 210, 115, .35); border-radius: 9px; color: #f2d47b; background: rgba(104, 100, 52, .25); font: 9px var(--app-font-mono); cursor: pointer; }
+.gear-equip:hover:not(:disabled) { background: rgba(104, 100, 52, .5); }
+.gear-equip:disabled { color: #809786; border-color: rgba(180, 204, 157, .13); background: rgba(12, 35, 35, .35); cursor: default; }
+.gear-equip.is-equipped { color: #8fe0b5; border-color: rgba(111, 205, 157, .25); }
+.empty-backpack { display: grid; justify-items: center; gap: 7px; padding: 34px 16px; border: 1px dashed rgba(180, 204, 157, .2); border-radius: 13px; color: #8fae9a; text-align: center; }
+.empty-backpack svg { color: #f0ca6c; }
+.empty-backpack strong { color: #e7d69a; font: 600 13px var(--app-font-sans); }
+.empty-backpack span { font: 10px var(--app-font-mono); }
 .joystick-base {
   width: 132px; height: 132px; border-radius: 50%; display: grid; place-items: center;
   background: rgba(12, 51, 48, .72); border: 1px solid rgba(209, 222, 167, .28);
@@ -184,6 +221,7 @@
   .brand-subtitle { display: none; }
   .status-grid { gap: 8px !important; }
   .equipment-panel { display: none; }
+  .backpack-button { bottom: 22px; }
   .loot-stack { top: 232px !important; right: 12px !important; max-width: 192px; }
 }
 @media (max-width: 900px) and (orientation: landscape), (pointer: coarse) and (orientation: landscape) {
@@ -200,4 +238,9 @@
   .zone-picker-scrim { padding: 14px; }
   .zone-picker { padding: 16px; }
   .zone-picker-head h2 { font-size: 23px; }
+  .backpack-scrim { padding: 14px; }
+  .backpack-modal { padding: 16px; }
+  .backpack-head h2 { font-size: 23px; }
+  .gear-card { gap: 7px; padding: 8px; }
+  .gear-equip { padding: 7px 6px; font-size: 8px; }
 }

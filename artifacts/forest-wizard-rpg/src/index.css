@@ -177,10 +177,14 @@
   .touch-controls { display: flex; position: absolute; left: 0; right: 0; bottom: max(20px, env(safe-area-inset-bottom)); z-index: 20; justify-content: space-between; align-items: end; padding: 0 22px; pointer-events: none; }
   .touch-controls > * { pointer-events: auto; }
   .hud-top { padding: 14px !important; }
+  .status-grid { position: absolute; top: 105px; left: 14px; right: 14px; display: flex; width: auto; align-items: stretch !important; }
+  .status-grid .status-card:first-child { flex: 1 1 auto; width: auto !important; min-width: 0; }
+  .status-grid .status-card:nth-child(2) { flex: 0 0 82px; min-width: 82px !important; }
+  .movement-hint { top: 190px !important; left: 14px !important; }
   .brand-subtitle { display: none; }
   .status-grid { gap: 8px !important; }
   .equipment-panel { display: none; }
-  .loot-stack { top: 104px !important; right: 12px !important; max-width: 192px; }
+  .loot-stack { top: 232px !important; right: 12px !important; max-width: 192px; }
 }
 @media (max-width: 900px) and (orientation: landscape), (pointer: coarse) and (orientation: landscape) {
   .portrait-only-overlay { display: grid; }

@@ -1,0 +1,298 @@
+Take the current Forest Wizard RPG and upgrade the existing game rather than rebuilding it from scratch.
+
+The goal is to make the game feel like a highly addictive mobile loot/progression RPG with a satisfying “just one more run” loop.
+
+IMPORTANT:
+
+* Keep everything that already works.
+* Do not remove the existing zone progression system or coin requirements.
+* Do not replace the entire project architecture.
+* Make changes incrementally and make sure the game still works after the changes.
+* Prioritize gameplay and satisfying feedback over adding tons of menus.
+
+CORE GAMEPLAY LOOP:
+
+FIGHT → KILL ENEMY → GET COINS + XP + CHANCE AT LOOT → UPGRADE → UNLOCK NEXT ZONE → FIGHT STRONGER ENEMIES → REPEAT.
+
+1. COMBAT
+    Make combat feel much more satisfying.
+
+Add:
+
+* Enemy health bars
+* Player damage numbers
+* Critical hits with larger damage numbers
+* Enemy death animations/effects
+* Hit feedback
+* Small screen shake or visual impact on powerful attacks
+* XP gained floating upward
+* Coins gained floating upward
+* A satisfying effect when an enemy dies
+
+Critical hits should feel noticeably stronger and less common than normal hits.
+
+2. LOOT SYSTEM
+
+Add randomized equipment drops from enemies.
+
+Rarities:
+
+Common
+Uncommon
+Rare
+Epic
+Legendary
+Mythic
+
+Higher rarity should have significantly better stats.
+
+Make loot exciting by showing:
+
+* Item name
+* Rarity
+* Stat bonuses
+* A clear rarity color
+* “NEW!” indicator when the player gets an item better than their current equipment
+
+Example items:
+
+* Wooden Wand
+* Apprentice Wand
+* Forest Staff
+* Arcane Staff
+* Dragon Staff
+* Mythic Starfire Staff
+
+Do NOT make Mythic items common. They should feel extremely rare and exciting.
+
+Give enemies a small chance to drop equipment.
+
+Bosses should have substantially better loot chances.
+
+3. EQUIPMENT
+
+Add equipment slots for:
+
+* Weapon
+* Armor
+* Ring
+
+Equipment should directly increase player stats.
+
+Example stats:
+
+* Damage
+* Critical Chance
+* Critical Damage
+* Health
+* Gold Bonus
+* XP Bonus
+
+When the player gets stronger equipment, make the upgrade visually obvious.
+
+4. XP + LEVELING
+
+Add a player level system.
+
+Enemies give XP.
+
+Show:
+LEVEL
+Current XP / XP needed
+
+When leveling up:
+
+* Play a level-up effect
+* Show “LEVEL UP!”
+* Increase player stats
+* Restore some/all health
+
+XP requirements should gradually increase with each level.
+
+5. ENEMY SCALING
+
+Each zone should have stronger enemies.
+
+Enemies should have:
+
+* Name
+* Level
+* Health
+* Damage
+* Coin reward
+* XP reward
+* Loot chance
+
+Create several enemy types appropriate for the forest theme.
+
+Examples:
+
+* Forest Slime
+* Wild Boar
+* Goblin
+* Dark Wolf
+* Treant
+* Forest Guardian
+
+6. BOSSES
+
+Each zone should eventually have a boss.
+
+Bosses should:
+
+* Have much more health
+* Deal more damage
+* Have a boss health bar
+* Give significantly more coins and XP
+* Have dramatically better loot chances
+
+Make boss kills feel like major accomplishments.
+
+7. ZONE PROGRESSION
+
+KEEP THE EXISTING ZONE UNLOCK SYSTEM.
+
+Improve it visually.
+
+Each zone should display:
+
+* Zone name
+* Recommended level
+* Unlock cost
+* Enemy difficulty
+* Better loot indication
+
+Make the next zone feel tempting.
+
+Example:
+
+🌲 Whispering Woods
+Current Zone
+
+🔥 Goblin Ruins
+Unlock: 5,000 coins
+Better enemies
+Better loot
+
+🌋 Dragon Valley
+Locked
+Unlock: 50,000 coins
+
+The player should constantly have a visible next goal.
+
+8. CHEST REWARDS
+
+Add occasional chest rewards after fights or milestones.
+
+Chest rewards can contain:
+
+* Coins
+* XP
+* Equipment
+* Rare equipment
+
+Create different chest tiers.
+
+Example:
+Wooden Chest
+Silver Chest
+Golden Chest
+Mythic Chest
+
+Opening a chest should have a short suspenseful animation before revealing the reward.
+
+9. DOPAMINE / FEEDBACK
+
+This is VERY important.
+
+Whenever the player accomplishes something, give strong visual feedback.
+
+Examples:
+
+* Enemy killed → coins/XP fly toward UI
+* Critical hit → large CRITICAL text
+* Rare item → special glow
+* Epic item → stronger effect
+* Legendary → dramatic effect
+* Mythic → extremely noticeable special effect
+* Level up → large celebration
+* Boss killed → major celebration
+* Zone unlocked → big unlock animation
+
+Don’t make animations excessively long. Everything should remain fast and responsive.
+
+10. CONSTANT GOALS
+
+Always give the player something to chase.
+
+Display small progression information such as:
+
+Next Level: 420 XP
+Next Zone: 2,350 / 5,000 coins
+Current Weapon: Forest Staff
+Next Upgrade: +15 Damage
+
+The player should rarely wonder “what am I supposed to do?”
+
+11. MOBILE UI
+
+This game is primarily being played on a phone.
+
+Make buttons:
+
+* Large
+* Easy to tap
+* Clearly labeled
+* Comfortable for one-handed play
+
+Avoid tiny text and tiny buttons.
+
+Make the UI feel like a polished mobile RPG rather than a desktop website.
+
+12. SAVE PROGRESS
+
+Make sure player progression persists when the page is refreshed.
+
+Save:
+
+* Coins
+* XP
+* Level
+* Current zone
+* Unlocked zones
+* Equipment
+* Player stats
+
+Use the simplest reliable browser/local storage solution available in the existing project.
+
+13. BALANCE
+
+Early game should move quickly.
+
+The player should get:
+
+* Frequent kills
+* Frequent coins
+* Frequent XP
+* Regular equipment drops
+
+But progression should gradually slow down.
+
+Rare loot should remain genuinely rare.
+
+The player should constantly think:
+
+“One more enemy.”
+“One more chest.”
+“One more upgrade.”
+“Just 500 more coins.”
+“I can almost unlock the next zone.”
+
+Do not add unnecessary complexity yet.
+
+FIRST PRIORITY:
+Make the existing combat, loot, XP, upgrades, and zone progression feel extremely satisfying.
+
+After implementing everything, test the game yourself for obvious bugs, broken buttons, UI overflow, and save/load problems.
+
+Do not stop after creating placeholders. Implement functional systems using the existing game’s code and assets.

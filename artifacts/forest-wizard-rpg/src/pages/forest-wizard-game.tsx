@@ -2,27 +2,30 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { Backpack as BackpackIcon, ChevronUp, Gem, LockKeyhole, Map as MapIcon, Pause, Play, RotateCcw, Shield, Smartphone, Sparkles, WandSparkles, X } from 'lucide-react';
 
 type Rarity = 'Common' | 'Uncommon' | 'Rare' | 'Epic' | 'Legendary' | 'Mythic';
-type EnemyKind = 'slime' | 'goblin';
-type LootKind = 'wand' | 'robe';
+type EnemyKind = 'slime' | 'goblin' | 'boar' | 'wolf' | 'treant' | 'guardian';
+type LootKind = 'wand' | 'robe' | 'ring';
+type ChestTier = 'Wooden' | 'Silver' | 'Golden' | 'Mythic';
 type Vec = { x: number; y: number };
 type UiState = {
   hp: number; maxHp: number; mana: number; maxMana: number; xp: number; nextXp: number;
-  level: number; gold: number; weapon: string; robe: string; damage: number; weaponBonus: number; robeBonus: number;
+  level: number; gold: number; weapon: string; robe: string; ring: string; damage: number; weaponBonus: number; robeBonus: number; ringBonus: number;
+  critChance: number; critDamage: number; goldBonus: number; xpBonus: number;
 };
 type Obstacle = { x: number; y: number; r: number; type: 'tree' | 'rock' | 'bush' };
 type Enemy = {
-  id: number; kind: EnemyKind; x: number; y: number; r: number; hp: number; maxHp: number;
+  id: number; kind: EnemyKind; name: string; level: number; x: number; y: number; r: number; hp: number; maxHp: number;
+  damage: number; coinReward: number; xpReward: number; lootChance: number; isBoss: boolean; deathLife: number;
   speed: number; aggro: number; hitCooldown: number; wander: number; angle: number; hurt: number;
 };
-type Projectile = { x: number; y: number; vx: number; vy: number; life: number; damage: number; targetId: number | null };
-type Gear = { id: number; kind: LootKind; name: string; rarity: Rarity; bonus: number; equipped: boolean };
-type Pickup = { id: number; x: number; y: number; kind: 'gold' | LootKind; amount: number; name?: string; rarity?: Rarity; bonus?: number; bob: number };
+type Projectile = { x: number; y: number; vx: number; vy: number; life: number; damage: number; crit: boolean; targetId: number | null };
+type Gear = { id: number; kind: LootKind; name: string; rarity: Rarity; bonus: number; critChance: number; critDamage: number; goldBonus: number; xpBonus: number; equipped: boolean };
+type Pickup = { id: number; x: number; y: number; kind: 'gold' | LootKind | 'chest'; amount: number; name?: string; rarity?: Rarity; bonus?: number; chestTier?: ChestTier; bob: number };
 type Particle = { x: number; y: number; vx: number; vy: number; life: number; maxLife: number; color: string; size: number };
-type FloatText = { x: number; y: number; value: string; color: string; life: number; maxLife: number };
+type FloatText = { x: number; y: number; value: string; color: string; life: number; maxLife: number; emphasis?: boolean };
 type GameState = {
   player: UiState & { x: number; y: number; r: number; lastDx: number; lastDy: number; hurt: number };
   enemies: Enemy[]; projectiles: Projectile[]; pickups: Pickup[]; backpack: Gear[]; particles: Particle[]; texts: FloatText[];
-  obstacles: Obstacle[]; elapsed: number; spawnId: number; zoneId: number; bounds: { width: number; height: number };
+  obstacles: Obstacle[]; elapsed: number; spawnId: number; zoneId: number; bounds: { width: number; height: number }; shake: number;
 };
 
 const WORLD = { width: 2600, height: 1700 };
@@ -34,10 +37,10 @@ const ZONE_BOUNDS: Record<number, { width: number; height: number }> = {
   4: WORLD,
 };
 const ZONES = [
-  { id: 1, name: 'Mosslight Grove', subtitle: 'The moonlit clearing', unlockCost: 0, enemyMultiplier: 1, ground: ['#1b4a3e', '#1d4d40'], path: '#8a805b', pond: '#285f68', treeDark: '#102f30', treeMid: '#1d5750', bush: '#2b6a4b' },
-  { id: 2, name: 'Whispering Fen', subtitle: 'Where the reeds remember', unlockCost: 125, enemyMultiplier: 1.28, ground: ['#264c43', '#285247'], path: '#7e7960', pond: '#2f6570', treeDark: '#172f35', treeMid: '#28605b', bush: '#3d7655' },
-  { id: 3, name: 'Emberroot Wilds', subtitle: 'A warm and restless wood', unlockCost: 300, enemyMultiplier: 1.62, ground: ['#4a3c35', '#514238'], path: '#9a7759', pond: '#315b61', treeDark: '#33252c', treeMid: '#654743', bush: '#6c583d' },
-  { id: 4, name: 'Starfall Hollow', subtitle: 'Beneath the ancient sky', unlockCost: 650, enemyMultiplier: 2.05, ground: ['#303b50', '#35435a'], path: '#777a88', pond: '#3a5b78', treeDark: '#1d263d', treeMid: '#384968', bush: '#49645c' },
+  { id: 1, name: 'Mosslight Grove', subtitle: 'The moonlit clearing', unlockCost: 0, recommendedLevel: 1, lootMultiplier: 1, enemyMultiplier: 1, ground: ['#1b4a3e', '#1d4d40'], path: '#8a805b', pond: '#285f68', treeDark: '#102f30', treeMid: '#1d5750', bush: '#2b6a4b' },
+  { id: 2, name: 'Whispering Fen', subtitle: 'Where the reeds remember', unlockCost: 125, recommendedLevel: 3, lootMultiplier: 1.2, enemyMultiplier: 1.28, ground: ['#264c43', '#285247'], path: '#7e7960', pond: '#2f6570', treeDark: '#172f35', treeMid: '#28605b', bush: '#3d7655' },
+  { id: 3, name: 'Emberroot Wilds', subtitle: 'A warm and restless wood', unlockCost: 300, recommendedLevel: 6, lootMultiplier: 1.5, enemyMultiplier: 1.62, ground: ['#4a3c35', '#514238'], path: '#9a7759', pond: '#315b61', treeDark: '#33252c', treeMid: '#654743', bush: '#6c583d' },
+  { id: 4, name: 'Starfall Hollow', subtitle: 'Beneath the ancient sky', unlockCost: 650, recommendedLevel: 10, lootMultiplier: 2, enemyMultiplier: 2.05, ground: ['#303b50', '#35435a'], path: '#777a88', pond: '#3a5b78', treeDark: '#1d263d', treeMid: '#384968', bush: '#49645c' },
 ] as const;
 const rarityColors: Record<Rarity, string> = {
   Common: '#b9c6b1', Uncommon: '#65d4a1', Rare: '#6db6ee', Epic: '#c99aec', Legendary: '#f0b85d', Mythic: '#f27b9c',
@@ -53,6 +56,49 @@ const seeded = (seed: number) => {
     return value / 4294967296;
   };
 };
+
+const ENEMY_PROFILES: Record<EnemyKind, { name: string; hp: number; damage: number; speed: number; radius: number; coins: number; xp: number; loot: number }> = {
+  slime: { name: 'Forest Slime', hp: 45, damage: 6, speed: 50, radius: 22, coins: 8, xp: 30, loot: .28 },
+  goblin: { name: 'Moss Goblin', hp: 64, damage: 9, speed: 72, radius: 19, coins: 17, xp: 42, loot: .38 },
+  boar: { name: 'Wild Boar', hp: 82, damage: 12, speed: 62, radius: 24, coins: 20, xp: 52, loot: .42 },
+  wolf: { name: 'Dark Wolf', hp: 72, damage: 14, speed: 92, radius: 18, coins: 23, xp: 58, loot: .45 },
+  treant: { name: 'Ancient Treant', hp: 170, damage: 18, speed: 34, radius: 31, coins: 55, xp: 120, loot: .7 },
+  guardian: { name: 'Forest Guardian', hp: 240, damage: 23, speed: 45, radius: 36, coins: 90, xp: 190, loot: .86 },
+};
+
+function createEnemy(id: number, kind: EnemyKind, x: number, y: number, zoneId: number, random: () => number, isBoss = false): Enemy {
+  const profile = ENEMY_PROFILES[kind];
+  const zone = ZONES[zoneId - 1] ?? ZONES[0];
+  const multiplier = zone.enemyMultiplier * (isBoss ? 2.5 : 1);
+  const level = Math.max(1, zone.recommendedLevel + (isBoss ? 2 : Math.floor(random() * 2)));
+  return {
+    id, kind, name: isBoss ? profile.name : profile.name, level, x, y, r: profile.radius,
+    hp: Math.round(profile.hp * multiplier), maxHp: Math.round(profile.hp * multiplier),
+    damage: Math.round(profile.damage * multiplier), coinReward: Math.round(profile.coins * multiplier),
+    xpReward: Math.round(profile.xp * multiplier), lootChance: Math.min(.98, profile.loot + (isBoss ? .18 : 0)),
+    isBoss, deathLife: 0, speed: profile.speed * (1 + (zone.id - 1) * .04) * (isBoss ? .8 : 1),
+    aggro: (kind === 'goblin' || kind === 'wolf' ? 380 : 330) + (zone.id - 1) * 18, hitCooldown: 0, wander: random() * 5, angle: random() * Math.PI * 2, hurt: 0,
+  };
+}
+
+type SaveData = { player: Partial<GameState['player']>; backpack: Gear[]; unlockedZones: number[]; zoneId: number };
+const SAVE_KEY = 'forest-wizard-rpg-save';
+function loadSave(): SaveData | null {
+  try {
+    const raw = window.localStorage.getItem(SAVE_KEY);
+    return raw ? JSON.parse(raw) as SaveData : null;
+  } catch {
+    return null;
+  }
+}
+function saveGame(game: GameState, unlockedZones: Set<number>) {
+  try {
+    const { x: _x, y: _y, lastDx: _lastDx, lastDy: _lastDy, hurt: _hurt, r: _r, ...player } = game.player;
+    window.localStorage.setItem(SAVE_KEY, JSON.stringify({ player, backpack: game.backpack, unlockedZones: Array.from(unlockedZones), zoneId: game.zoneId }));
+  } catch {
+    // Storage can be unavailable in private browsing; the run remains playable.
+  }
+}
 
 function createObstacles(zoneId = 1): Obstacle[] {
   const random = seeded(44 + zoneId * 917);
@@ -86,19 +132,15 @@ function makeGame(zoneId = 1, playerOverrides: Partial<GameState['player']> = {}
     { x: 1780, y: 380 }, { x: 2180, y: 650 }, { x: 2260, y: 1290 }, { x: 1740, y: 1240 },
     { x: 480, y: 1380 }, { x: 840, y: 1450 }, { x: 1960, y: 900 }, { x: 380, y: 840 },
   ];
+  const kinds: EnemyKind[] = ['goblin', 'slime', 'boar', 'slime', 'wolf', 'goblin', 'treant', 'slime', 'boar', 'wolf', 'slime', 'goblin'];
   spots.map((spot) => ({ x: spot.x * bounds.width / WORLD.width, y: spot.y * bounds.height / WORLD.height })).forEach((spot, index) => {
-    const kind: EnemyKind = index % 3 === 0 ? 'goblin' : 'slime';
-    const enemyScale = zone.enemyMultiplier;
-    enemies.push({
-      id: index + 1, kind, x: spot.x, y: spot.y, r: kind === 'goblin' ? 19 : 22,
-      hp: Math.round((kind === 'goblin' ? 64 : 45) * enemyScale), maxHp: Math.round((kind === 'goblin' ? 64 : 45) * enemyScale),
-      speed: (kind === 'goblin' ? 72 : 50) * (1 + (zone.id - 1) * .04), aggro: (kind === 'goblin' ? 380 : 330) + (zone.id - 1) * 18,
-      hitCooldown: 0, wander: random() * 5, angle: random() * Math.PI * 2, hurt: 0,
-    });
+    enemies.push(createEnemy(index + 1, kinds[index], spot.x, spot.y, zone.id, random));
   });
+  const bossKind: EnemyKind = zone.id === 4 ? 'guardian' : 'treant';
+  enemies.push(createEnemy(80 + zone.id, bossKind, bounds.width * .76, bounds.height * .18, zone.id, random, true));
   return {
-    player: { r: 17, hp: 100, maxHp: 100, mana: 100, maxMana: 100, xp: 0, nextXp: 100, level: 1, gold: 42, weapon: 'Ashwood Wand', robe: 'Mossweave Robe', damage: 22, weaponBonus: 0, robeBonus: 0, ...playerOverrides, x: bounds.width / 2, y: bounds.height / 2, lastDx: 1, lastDy: 0, hurt: 0 },
-    enemies, projectiles: [], pickups: [], backpack, particles: [], texts: [], obstacles, elapsed: 0, spawnId: 100, zoneId: zone.id, bounds,
+    player: { r: 17, hp: 100, maxHp: 100, mana: 100, maxMana: 100, xp: 0, nextXp: 100, level: 1, gold: 42, weapon: 'Ashwood Wand', robe: 'Mossweave Robe', ring: 'Moonseed Band', damage: 22, weaponBonus: 0, robeBonus: 0, ringBonus: 0, critChance: .08, critDamage: 1.8, goldBonus: 0, xpBonus: 0, ...playerOverrides, x: bounds.width / 2, y: bounds.height / 2, lastDx: 1, lastDy: 0, hurt: 0 },
+    enemies, projectiles: [], pickups: [], backpack, particles: [], texts: [], obstacles, elapsed: 0, spawnId: 100, zoneId: zone.id, bounds, shake: 0,
   };
 }
 
@@ -113,22 +155,33 @@ function moveWithCollision(point: { x: number; y: number }, dx: number, dy: numb
   if (!blocked(point.x, ny, radius, obstacles)) point.y = ny;
 }
 
-function chooseLoot(random: () => number, enemy: Enemy): { kind: LootKind; name: string; rarity: Rarity; bonus: number } {
-  const roll = random();
+function chooseLoot(random: () => number, enemy: Enemy): { kind: LootKind; name: string; rarity: Rarity; bonus: number; critChance: number; critDamage: number; goldBonus: number; xpBonus: number } {
+  const roll = random() + (enemy.isBoss ? .12 : 0);
   const rarity: Rarity = roll > .985 ? 'Mythic' : roll > .95 ? 'Legendary' : roll > .83 ? 'Epic' : roll > .62 ? 'Rare' : roll > .3 ? 'Uncommon' : 'Common';
-  const kind: LootKind = random() > .48 ? 'wand' : 'robe';
+  const kind: LootKind = random() > .62 ? 'ring' : random() > .48 ? 'wand' : 'robe';
   const names: Record<LootKind, string[]> = {
-    wand: ['Bramble Wand', 'Moonreed Staff', 'Foxfire Rod', 'Starling Scepter', 'Glimmerbranch'],
+    wand: ['Wooden Wand', 'Apprentice Wand', 'Forest Staff', 'Arcane Staff', 'Dragon Staff', 'Starfire Staff'],
     robe: ['Fernstitch Robe', 'Nightbloom Mantle', 'Hearthmoss Cloak', 'Silverleaf Vestment', 'Dewfall Cowl'],
+    ring: ['Mossgold Ring', 'Moonseed Band', 'Emberloop', 'Starlit Signet', 'Dragonroot Ring'],
   };
-  const prefix = rarity === 'Mythic' ? 'Astral' : rarity === 'Legendary' ? 'Sunken' : rarity === 'Epic' ? 'Runed' : '';
-  const bonus = Math.round(4 + rarityOrder[rarity] * 5 + random() * 7);
-  return { kind, name: `${prefix ? `${prefix} ` : ''}${names[kind][Math.floor(random() * names[kind].length)]}`, rarity, bonus };
+  const prefix = rarity === 'Mythic' ? 'Mythic' : rarity === 'Legendary' ? 'Legendary' : rarity === 'Epic' ? 'Runed' : '';
+  const bonus = Math.round((4 + rarityOrder[rarity] * 5 + random() * 7) * (enemy.isBoss ? 1.35 : 1));
+  const statBoost = rarityOrder[rarity] * .012;
+  return {
+    kind, name: `${prefix ? `${prefix} ` : ''}${names[kind][Math.floor(random() * names[kind].length)]}`, rarity, bonus,
+    critChance: kind === 'ring' ? .03 + statBoost : kind === 'wand' ? .01 + statBoost / 2 : 0,
+    critDamage: kind === 'ring' ? .05 + statBoost : kind === 'wand' ? .03 + statBoost / 2 : 0,
+    goldBonus: kind === 'ring' ? .04 + statBoost : 0,
+    xpBonus: kind === 'ring' ? .04 + statBoost : 0,
+  };
 }
 
 export default function ForestWizardGame() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const gameRef = useRef<GameState>(makeGame());
+  const initialSaveRef = useRef<SaveData | null | undefined>(undefined);
+  if (initialSaveRef.current === undefined) initialSaveRef.current = loadSave();
+  const saved = initialSaveRef.current;
+  const gameRef = useRef<GameState>(makeGame(saved?.zoneId ?? 1, saved?.player ?? {}, saved?.backpack ?? []));
   const keysRef = useRef<Set<string>>(new Set());
   const inputRef = useRef({ x: 0, y: 0 });
   const pauseRef = useRef(false);
@@ -138,12 +191,14 @@ export default function ForestWizardGame() {
   const [zonePickerOpen, setZonePickerOpen] = useState(false);
   const [backpackOpen, setBackpackOpen] = useState(false);
   const [backpack, setBackpack] = useState<Gear[]>(gameRef.current.backpack);
-  const [unlockedZones, setUnlockedZones] = useState<number[]>([1]);
+  const [unlockedZones, setUnlockedZones] = useState<number[]>(saved?.unlockedZones?.length ? saved.unlockedZones : [1]);
   const [lootToasts, setLootToasts] = useState<Array<{ id: number; text: string; rarity?: Rarity; color?: string }>>([]);
   const [levelFlash, setLevelFlash] = useState<number | null>(null);
+  const [bossUi, setBossUi] = useState<{ name: string; hp: number; maxHp: number } | null>(null);
+  const [chestReveal, setChestReveal] = useState<{ tier: ChestTier; reward: string } | null>(null);
   const [joystick, setJoystick] = useState({ x: 0, y: 0 });
   const toastId = useRef(0);
-  const unlockedZonesRef = useRef(new Set([1]));
+  const unlockedZonesRef = useRef(new Set(saved?.unlockedZones?.length ? saved.unlockedZones : [1]));
 
   const addToast = useCallback((text: string, rarity?: Rarity, color?: string) => {
     const id = toastId.current++;
@@ -194,12 +249,17 @@ export default function ForestWizardGame() {
       burst(game.player.x + dx * 20, game.player.y + dy * 20, '#f7d881', 5);
     };
     const reset = () => {
-      gameRef.current = makeGame(game.zoneId);
+      gameRef.current = makeGame(1);
       Object.assign(game, gameRef.current);
       setUi(game.player);
       setBackpack([]);
+      unlockedZonesRef.current = new Set([1]);
+      setUnlockedZones([1]);
       setLootToasts([]);
       setLevelFlash(null);
+      setBossUi(null);
+      setChestReveal(null);
+      window.localStorage.removeItem(SAVE_KEY);
       pauseRef.current = false;
       setPaused(false);
     };
@@ -217,9 +277,15 @@ export default function ForestWizardGame() {
         gold: previousPlayer.gold,
         weapon: previousPlayer.weapon,
         robe: previousPlayer.robe,
+        ring: previousPlayer.ring,
         damage: previousPlayer.damage,
         weaponBonus: previousPlayer.weaponBonus,
         robeBonus: previousPlayer.robeBonus,
+        ringBonus: previousPlayer.ringBonus,
+        critChance: previousPlayer.critChance,
+        critDamage: previousPlayer.critDamage,
+        goldBonus: previousPlayer.goldBonus,
+        xpBonus: previousPlayer.xpBonus,
       }, game.backpack);
       gameRef.current = next;
       Object.assign(game, next);
@@ -229,32 +295,42 @@ export default function ForestWizardGame() {
       setZonePickerOpen(false);
       pauseRef.current = false;
       setPaused(false);
+      saveGame(game, unlockedZonesRef.current);
       addToast(`Entered ${ZONES[zoneId - 1].name}`, undefined, '#b9d79d');
     };
     const equip = (gearId: number) => {
       const item = game.backpack.find((gear) => gear.id === gearId);
       if (!item) return;
-      const currentBonus = item.kind === 'wand' ? game.player.weaponBonus : game.player.robeBonus;
+      const currentBonus = item.kind === 'wand' ? game.player.weaponBonus : item.kind === 'robe' ? game.player.robeBonus : game.player.ringBonus;
       if (item.equipped) return;
       if (item.bonus <= currentBonus) {
         addToast(`${item.name} is weaker than your current ${item.kind}`, item.rarity, '#d89481');
         return;
       }
+      const previousGear = game.backpack.find((gear) => gear.kind === item.kind && gear.equipped && gear.id !== item.id);
       game.backpack.forEach((gear) => { if (gear.kind === item.kind) gear.equipped = false; });
       item.equipped = true;
+      game.player.critChance += item.critChance - (previousGear?.critChance ?? 0);
+      game.player.critDamage += item.critDamage - (previousGear?.critDamage ?? 0);
+      game.player.goldBonus += item.goldBonus - (previousGear?.goldBonus ?? 0);
+      game.player.xpBonus += item.xpBonus - (previousGear?.xpBonus ?? 0);
       if (item.kind === 'wand') {
+        game.player.damage += item.bonus - game.player.weaponBonus;
         game.player.weaponBonus = item.bonus;
-        game.player.damage = 22 + item.bonus;
         game.player.weapon = item.name;
-      } else {
+      } else if (item.kind === 'robe') {
         const healthGain = item.bonus - game.player.robeBonus;
         game.player.robeBonus = item.bonus;
         game.player.maxHp += healthGain;
         game.player.hp = Math.min(game.player.maxHp, game.player.hp + healthGain);
         game.player.robe = item.name;
+      } else {
+        game.player.ringBonus = item.bonus;
+        game.player.ring = item.name;
       }
       setUi({ ...game.player });
       setBackpack([...game.backpack]);
+      saveGame(game, unlockedZonesRef.current);
       addToast(`${item.name} equipped`, item.rarity, rarityColors[item.rarity]);
     };
     apiRef.current = { cast, reset, changeZone, equip };

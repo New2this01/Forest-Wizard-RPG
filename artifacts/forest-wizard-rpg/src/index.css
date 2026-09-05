@@ -222,6 +222,7 @@
   .status-grid { gap: 8px !important; }
   .equipment-panel { display: none; }
   .backpack-button { bottom: 22px; }
+  .gold-display { bottom: 126px !important; right: 24px !important; padding: 7px 9px; border-radius: 10px; background: rgba(13, 47, 45, .88); border: 1px solid rgba(214, 192, 104, .25); font-size: 11px !important; }
   .loot-stack { top: 232px !important; right: 12px !important; max-width: 192px; }
 }
 @media (max-width: 900px) and (orientation: landscape), (pointer: coarse) and (orientation: landscape) {

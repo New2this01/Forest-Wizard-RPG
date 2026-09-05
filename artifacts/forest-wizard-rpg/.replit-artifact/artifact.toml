@@ -1,0 +1,28 @@
+kind = "web"
+previewPath = "/"
+title = "Forest Wizard RPG"
+description = "A touch-friendly top-down fantasy action RPG where a young wizard explores a living forest, fights chasing slimes and goblins with magic projectiles, earns XP, levels up, and collects randomized equipment loot."
+version = "1.0.0"
+id = "artifacts/forest-wizard-rpg"
+router = "path"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 18501
+
+[services.development]
+run = "pnpm --filter @workspace/forest-wizard-rpg run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/forest-wizard-rpg", "run", "build" ]
+serve = "static"
+publicDir = "artifacts/forest-wizard-rpg/dist/public"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "18501"
+BASE_PATH = "/"

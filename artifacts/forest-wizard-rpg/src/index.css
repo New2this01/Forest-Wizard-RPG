@@ -1,0 +1,144 @@
+@import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Outfit:wght@400;500;600;700;800&family=Playfair+Display:wght@600;700&display=swap');
+@import 'tailwindcss';
+@import 'tw-animate-css';
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --color-background: hsl(var(--background));
+  --color-foreground: hsl(var(--foreground));
+  --color-border: hsl(var(--border));
+  --color-input: hsl(var(--input));
+  --color-ring: hsl(var(--ring));
+  --color-card: hsl(var(--card));
+  --color-card-foreground: hsl(var(--card-foreground));
+  --color-card-border: hsl(var(--card-border));
+  --color-primary: hsl(var(--primary));
+  --color-primary-foreground: hsl(var(--primary-foreground));
+  --font-sans: var(--app-font-sans);
+  --font-serif: var(--app-font-serif);
+  --font-mono: var(--app-font-mono);
+}
+
+:root {
+  --background: 167 45% 8%;
+  --foreground: 45 44% 90%;
+  --border: 163 28% 25%;
+  --input: 163 28% 25%;
+  --ring: 42 88% 63%;
+  --card: 165 37% 12%;
+  --card-foreground: 45 44% 90%;
+  --card-border: 160 28% 25%;
+  --primary: 42 88% 63%;
+  --primary-foreground: 166 47% 9%;
+  --app-font-sans: 'Outfit', sans-serif;
+  --app-font-serif: 'Playfair Display', serif;
+  --app-font-mono: 'DM Mono', monospace;
+  --radius: 0.75rem;
+}
+
+.dark {
+  --background: 167 45% 8%;
+  --foreground: 45 44% 90%;
+  --border: 163 28% 25%;
+  --input: 163 28% 25%;
+  --ring: 42 88% 63%;
+  --card: 165 37% 12%;
+  --card-foreground: 45 44% 90%;
+  --card-border: 160 28% 25%;
+  --primary: 42 88% 63%;
+  --primary-foreground: 166 47% 9%;
+}
+
+@layer base {
+  * { box-sizing: border-box; border-color: hsl(var(--border)); }
+  html, body, #root { width: 100%; min-height: 100%; margin: 0; }
+  body {
+    @apply antialiased;
+    background: hsl(var(--background));
+    color: hsl(var(--foreground));
+    font-family: var(--app-font-sans);
+    overflow: hidden;
+  }
+  button { font: inherit; }
+}
+
+.game-shell {
+  position: relative;
+  width: 100%;
+  height: 100dvh;
+  min-height: 520px;
+  overflow: hidden;
+  background: #092d2c;
+  isolation: isolate;
+}
+.game-shell::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 5;
+  opacity: .18;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 180 180' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.34'/%3E%3C/svg%3E");
+  mix-blend-mode: soft-light;
+}
+.game-canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
+.hud-layer { position: absolute; inset: 0; z-index: 10; pointer-events: none; }
+.hud-layer > * { pointer-events: auto; }
+.glass-panel {
+  background: linear-gradient(135deg, rgba(13, 47, 45, .9), rgba(8, 34, 35, .78));
+  border: 1px solid rgba(178, 197, 140, .18);
+  box-shadow: 0 14px 36px rgba(2, 17, 19, .24), inset 0 1px 0 rgba(255,255,255,.07);
+  backdrop-filter: blur(12px);
+}
+.game-brand { text-shadow: 0 2px 24px rgba(232, 194, 93, .2); }
+.hud-bar { height: 8px; overflow: hidden; border-radius: 999px; background: rgba(0,0,0,.34); }
+.hud-fill { height: 100%; border-radius: inherit; transition: width .2s ease-out; }
+.hud-button {
+  display: grid; place-items: center; width: 38px; height: 38px; border-radius: 12px;
+  color: #dfebce; background: rgba(20, 61, 57, .8); border: 1px solid rgba(188, 209, 151, .2);
+  transition: transform .16s ease, background .16s ease;
+}
+.hud-button:hover { background: rgba(38, 84, 73, .95); transform: translateY(-1px); }
+.hud-button:active { transform: translateY(1px) scale(.96); }
+.loot-toast { animation: toast-in .36s cubic-bezier(.2,.9,.2,1) both; }
+@keyframes toast-in { from { opacity: 0; transform: translateX(20px) translateY(-7px); } to { opacity: 1; transform: translateX(0) translateY(0); } }
+.level-flare { animation: level-pop .8s cubic-bezier(.2,1.2,.2,1) both; }
+@keyframes level-pop { 0% { opacity: 0; transform: scale(.7); } 18% { opacity: 1; } 75% { opacity: 1; transform: scale(1.05); } 100% { opacity: 0; transform: scale(1); } }
+.pause-scrim { background: rgba(3, 18, 20, .54); backdrop-filter: blur(4px); }
+.joystick-base {
+  width: 132px; height: 132px; border-radius: 50%; display: grid; place-items: center;
+  background: rgba(12, 51, 48, .72); border: 1px solid rgba(209, 222, 167, .28);
+  box-shadow: inset 0 0 0 12px rgba(7, 34, 35, .22), 0 10px 22px rgba(2, 17, 19, .3);
+  touch-action: none;
+}
+.joystick-knob {
+  width: 58px; height: 58px; border-radius: 50%; display: grid; place-items: center;
+  background: radial-gradient(circle at 35% 25%, #f2d887, #c7963b);
+  border: 2px solid rgba(255, 241, 177, .68); box-shadow: 0 5px 14px rgba(0,0,0,.28);
+  transition: transform .08s linear;
+}
+.cast-button {
+  width: 92px; height: 92px; border-radius: 50%; display: grid; place-items: center;
+  color: #142e2a; background: radial-gradient(circle at 35% 22%, #f8e6a8, #e1ab48);
+  border: 3px solid rgba(249, 234, 163, .66); box-shadow: 0 7px 0 #9e6d2d, 0 12px 28px rgba(0,0,0,.28);
+  transition: transform .12s ease, filter .12s ease;
+}
+.cast-button:hover { filter: brightness(1.08); }
+.cast-button:active { transform: translateY(5px) scale(.96); box-shadow: 0 2px 0 #9e6d2d, 0 7px 16px rgba(0,0,0,.24); }
+.touch-controls { display: none; }
+@media (max-width: 760px), (pointer: coarse) {
+  .touch-controls { display: flex; position: absolute; left: 0; right: 0; bottom: max(20px, env(safe-area-inset-bottom)); z-index: 20; justify-content: space-between; align-items: end; padding: 0 22px; pointer-events: none; }
+  .touch-controls > * { pointer-events: auto; }
+  .hud-top { padding: 14px !important; }
+  .brand-subtitle { display: none; }
+  .status-grid { gap: 8px !important; }
+  .equipment-panel { display: none; }
+  .loot-stack { top: 104px !important; right: 12px !important; max-width: 192px; }
+}
+@media (max-width: 430px) {
+  .game-brand { font-size: 17px !important; }
+  .status-card { padding: 8px !important; }
+  .status-card .stat-label { font-size: 9px !important; }
+  .status-card .stat-value { font-size: 11px !important; }
+}

@@ -25,6 +25,7 @@ type GameState = {
 };
 
 const WORLD = { width: 2600, height: 1700 };
+const CAMERA_ZOOM = 0.56;
 const rarityColors: Record<Rarity, string> = {
   Common: '#b9c6b1', Uncommon: '#65d4a1', Rare: '#6db6ee', Epic: '#c99aec', Legendary: '#f0b85d', Mythic: '#f27b9c',
 };
@@ -271,12 +272,14 @@ export default function ForestWizardGame() {
     const draw = () => {
       context.clearRect(0, 0, viewW, viewH);
       const player = game.player;
-      const camX = clamp(game.player.x - viewW / 2, 0, WORLD.width - viewW);
-      const camY = clamp(game.player.y - viewH / 2, 0, WORLD.height - viewH);
-      context.save(); context.translate(-camX, -camY);
-      context.fillStyle = '#163f39'; context.fillRect(camX, camY, viewW, viewH);
+      const worldViewW = viewW / CAMERA_ZOOM;
+      const worldViewH = viewH / CAMERA_ZOOM;
+      const camX = clamp(game.player.x - worldViewW / 2, 0, WORLD.width - worldViewW);
+      const camY = clamp(game.player.y - worldViewH / 2, 0, WORLD.height - worldViewH);
+      context.save(); context.scale(CAMERA_ZOOM, CAMERA_ZOOM); context.translate(-camX, -camY);
+      context.fillStyle = '#163f39'; context.fillRect(camX, camY, worldViewW, worldViewH);
       const tile = 64; const startX = Math.floor(camX / tile) * tile; const startY = Math.floor(camY / tile) * tile;
-      for (let x = startX; x < camX + viewW + tile; x += tile) for (let y = startY; y < camY + viewH + tile; y += tile) {
+      for (let x = startX; x < camX + worldViewW + tile; x += tile) for (let y = startY; y < camY + worldViewH + tile; y += tile) {
         context.fillStyle = ((x / tile + y / tile) % 2 === 0) ? '#1b4a3e' : '#1d4d40'; context.fillRect(x, y, tile + 1, tile + 1);
         context.fillStyle = 'rgba(143, 184, 111, .09)'; context.beginPath(); context.arc(x + 15 + ((y / 7) % 19), y + 24, 1.4, 0, Math.PI * 2); context.fill();
       }

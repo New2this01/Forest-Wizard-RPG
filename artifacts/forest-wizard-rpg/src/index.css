@@ -92,6 +92,18 @@
   backdrop-filter: blur(12px);
 }
 .game-brand { text-shadow: 0 2px 24px rgba(232, 194, 93, .2); }
+.zone-chip {
+  display: inline-flex; align-items: center; gap: 9px; margin-top: 14px; padding: 8px 10px;
+  color: #dbe8c9; background: rgba(11, 48, 46, .72); border: 1px solid rgba(190, 212, 157, .2);
+  border-radius: 11px; text-align: left; cursor: pointer; box-shadow: 0 8px 20px rgba(2, 17, 19, .16);
+  transition: transform .16s ease, background .16s ease, border-color .16s ease;
+}
+.zone-chip:hover { background: rgba(31, 79, 67, .9); border-color: rgba(236, 213, 126, .45); transform: translateY(-1px); }
+.zone-chip > svg { color: #f0c86e; }
+.zone-chip span { display: grid; gap: 2px; }
+.zone-chip b { color: #f4d681; font: 500 9px var(--app-font-mono); letter-spacing: .12em; }
+.zone-chip strong { color: #dae5c7; font: 600 12px var(--app-font-sans); }
+.zone-chip-arrow { color: rgba(211, 227, 192, .52); font: 9px var(--app-font-mono) !important; letter-spacing: .08em; }
 .hud-bar { height: 8px; overflow: hidden; border-radius: 999px; background: rgba(0,0,0,.34); }
 .hud-fill { height: 100%; border-radius: inherit; transition: width .2s ease-out; }
 .hud-button {
@@ -106,6 +118,32 @@
 .level-flare { animation: level-pop .8s cubic-bezier(.2,1.2,.2,1) both; }
 @keyframes level-pop { 0% { opacity: 0; transform: scale(.7); } 18% { opacity: 1; } 75% { opacity: 1; transform: scale(1.05); } 100% { opacity: 0; transform: scale(1); } }
 .pause-scrim { background: rgba(3, 18, 20, .54); backdrop-filter: blur(4px); }
+.zone-picker-scrim {
+  position: absolute; inset: 0; z-index: 25; display: grid; place-items: center;
+  padding: 24px; background: rgba(3, 18, 20, .64); backdrop-filter: blur(8px);
+}
+.zone-picker { width: min(500px, 100%); padding: 22px; border-radius: 19px; box-shadow: 0 24px 70px rgba(0, 0, 0, .35); }
+.zone-picker-head { display: flex; justify-content: space-between; gap: 18px; align-items: start; margin-bottom: 18px; }
+.zone-picker-head h2 { margin: 4px 0 4px; color: #f4d783; font: 700 27px var(--app-font-serif); }
+.zone-picker-head p { max-width: 340px; margin: 0; color: #b6cdb2; font: 11px/1.55 var(--app-font-mono); }
+.zone-kicker { color: #8fc9ad; font: 9px var(--app-font-mono); letter-spacing: .16em; }
+.zone-list { display: grid; gap: 8px; }
+.zone-option {
+  display: flex; align-items: center; gap: 11px; width: 100%; padding: 10px; color: #e7edcf;
+  background: rgba(12, 48, 46, .58); border: 1px solid rgba(180, 204, 157, .14); border-radius: 13px;
+  text-align: left; cursor: pointer; transition: transform .16s ease, border-color .16s ease, background .16s ease;
+}
+.zone-option:hover:not(:disabled) { transform: translateX(3px); background: rgba(35, 81, 70, .82); border-color: rgba(238, 210, 115, .42); }
+.zone-option.is-current { background: rgba(104, 100, 52, .22); border-color: rgba(238, 210, 115, .46); }
+.zone-option.is-locked { opacity: .86; }
+.zone-option:disabled { cursor: default; }
+.zone-swatch { display: grid; place-items: center; flex: 0 0 38px; width: 38px; height: 38px; border-radius: 10px; color: #f8dfa0; font: 700 17px var(--app-font-serif); box-shadow: inset 0 1px 0 rgba(255,255,255,.16); }
+.zone-copy { display: grid; flex: 1; min-width: 0; gap: 2px; }
+.zone-copy strong { color: #f0df9e; font: 600 13px var(--app-font-sans); }
+.zone-copy small, .zone-copy em { overflow: hidden; color: #a7c1ae; font: 10px var(--app-font-mono); text-overflow: ellipsis; white-space: nowrap; }
+.zone-copy em { color: #d1937f; font-style: normal; font-size: 9px; }
+.zone-action { display: inline-flex; align-items: center; gap: 4px; flex: 0 0 auto; color: #f0ce70; font: 10px var(--app-font-mono); letter-spacing: .05em; }
+.zone-action.needs-gold { color: #d89481; }
 .joystick-base {
   width: 132px; height: 132px; border-radius: 50%; display: grid; place-items: center;
   background: rgba(12, 51, 48, .72); border: 1px solid rgba(209, 222, 167, .28);
@@ -138,7 +176,13 @@
 }
 @media (max-width: 430px) {
   .game-brand { font-size: 17px !important; }
+  .zone-chip { margin-top: 9px; padding: 6px 8px; gap: 6px; }
+  .zone-chip strong { font-size: 10px; }
+  .zone-chip b, .zone-chip-arrow { font-size: 8px !important; }
   .status-card { padding: 8px !important; }
   .status-card .stat-label { font-size: 9px !important; }
   .status-card .stat-value { font-size: 11px !important; }
+  .zone-picker-scrim { padding: 14px; }
+  .zone-picker { padding: 16px; }
+  .zone-picker-head h2 { font-size: 23px; }
 }

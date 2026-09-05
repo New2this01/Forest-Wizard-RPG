@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { ChevronUp, Gem, Pause, Play, RotateCcw, Shield, Sparkles, WandSparkles } from 'lucide-react';
+import { ChevronUp, Gem, LockKeyhole, Map as MapIcon, Pause, Play, RotateCcw, Shield, Sparkles, WandSparkles, X } from 'lucide-react';
 
 type Rarity = 'Common' | 'Uncommon' | 'Rare' | 'Epic' | 'Legendary' | 'Mythic';
 type EnemyKind = 'slime' | 'goblin';
@@ -21,11 +21,17 @@ type FloatText = { x: number; y: number; value: string; color: string; life: num
 type GameState = {
   player: UiState & { x: number; y: number; r: number; lastDx: number; lastDy: number; hurt: number };
   enemies: Enemy[]; projectiles: Projectile[]; pickups: Pickup[]; particles: Particle[]; texts: FloatText[];
-  obstacles: Obstacle[]; elapsed: number; spawnId: number;
+  obstacles: Obstacle[]; elapsed: number; spawnId: number; zoneId: number;
 };
 
 const WORLD = { width: 2600, height: 1700 };
 const CAMERA_ZOOM = 0.56;
+const ZONES = [
+  { id: 1, name: 'Mosslight Grove', subtitle: 'The moonlit clearing', unlockCost: 0, enemyMultiplier: 1, ground: ['#1b4a3e', '#1d4d40'], path: '#8a805b', pond: '#285f68', treeDark: '#102f30', treeMid: '#1d5750', bush: '#2b6a4b' },
+  { id: 2, name: 'Whispering Fen', subtitle: 'Where the reeds remember', unlockCost: 125, enemyMultiplier: 1.28, ground: ['#264c43', '#285247'], path: '#7e7960', pond: '#2f6570', treeDark: '#172f35', treeMid: '#28605b', bush: '#3d7655' },
+  { id: 3, name: 'Emberroot Wilds', subtitle: 'A warm and restless wood', unlockCost: 300, enemyMultiplier: 1.62, ground: ['#4a3c35', '#514238'], path: '#9a7759', pond: '#315b61', treeDark: '#33252c', treeMid: '#654743', bush: '#6c583d' },
+  { id: 4, name: 'Starfall Hollow', subtitle: 'Beneath the ancient sky', unlockCost: 650, enemyMultiplier: 2.05, ground: ['#303b50', '#35435a'], path: '#777a88', pond: '#3a5b78', treeDark: '#1d263d', treeMid: '#384968', bush: '#49645c' },
+] as const;
 const rarityColors: Record<Rarity, string> = {
   Common: '#b9c6b1', Uncommon: '#65d4a1', Rare: '#6db6ee', Epic: '#c99aec', Legendary: '#f0b85d', Mythic: '#f27b9c',
 };
@@ -41,8 +47,8 @@ const seeded = (seed: number) => {
   };
 };
 
-function createObstacles(): Obstacle[] {
-  const random = seeded(44);
+function createObstacles(zoneId = 1): Obstacle[] {
+  const random = seeded(44 + zoneId * 917);
   const obstacles: Obstacle[] = [
     { x: 420, y: 350, r: 50, type: 'tree' }, { x: 610, y: 1240, r: 58, type: 'tree' },
     { x: 2120, y: 360, r: 62, type: 'tree' }, { x: 2250, y: 1170, r: 52, type: 'tree' },
@@ -57,9 +63,10 @@ function createObstacles(): Obstacle[] {
   return obstacles;
 }
 
-function makeGame(): GameState {
-  const random = seeded(912);
-  const obstacles = createObstacles();
+function makeGame(zoneId = 1, playerOverrides: Partial<GameState['player']> = {}): GameState {
+  const zone = ZONES[zoneId - 1] ?? ZONES[0];
+  const random = seeded(912 + zoneId * 139);
+  const obstacles = createObstacles(zone.id);
   const enemies: Enemy[] = [];
   const spots: Vec[] = [
     { x: 430, y: 560 }, { x: 720, y: 330 }, { x: 970, y: 1180 }, { x: 1320, y: 330 },
@@ -68,16 +75,17 @@ function makeGame(): GameState {
   ];
   spots.forEach((spot, index) => {
     const kind: EnemyKind = index % 3 === 0 ? 'goblin' : 'slime';
+    const enemyScale = zone.enemyMultiplier;
     enemies.push({
       id: index + 1, kind, x: spot.x, y: spot.y, r: kind === 'goblin' ? 19 : 22,
-      hp: kind === 'goblin' ? 64 : 45, maxHp: kind === 'goblin' ? 64 : 45,
-      speed: kind === 'goblin' ? 72 : 50, aggro: kind === 'goblin' ? 380 : 330,
+      hp: Math.round((kind === 'goblin' ? 64 : 45) * enemyScale), maxHp: Math.round((kind === 'goblin' ? 64 : 45) * enemyScale),
+      speed: (kind === 'goblin' ? 72 : 50) * (1 + (zone.id - 1) * .04), aggro: (kind === 'goblin' ? 380 : 330) + (zone.id - 1) * 18,
       hitCooldown: 0, wander: random() * 5, angle: random() * Math.PI * 2, hurt: 0,
     });
   });
   return {
-    player: { x: 1300, y: 850, r: 17, hp: 100, maxHp: 100, mana: 100, maxMana: 100, xp: 0, nextXp: 100, level: 1, gold: 42, weapon: 'Ashwood Wand', robe: 'Mossweave Robe', damage: 22, lastDx: 1, lastDy: 0, hurt: 0 },
-    enemies, projectiles: [], pickups: [], particles: [], texts: [], obstacles, elapsed: 0, spawnId: 100,
+    player: { r: 17, hp: 100, maxHp: 100, mana: 100, maxMana: 100, xp: 0, nextXp: 100, level: 1, gold: 42, weapon: 'Ashwood Wand', robe: 'Mossweave Robe', damage: 22, ...playerOverrides, x: 1300, y: 850, lastDx: 1, lastDy: 0, hurt: 0 },
+    enemies, projectiles: [], pickups: [], particles: [], texts: [], obstacles, elapsed: 0, spawnId: 100, zoneId: zone.id,
   };
 }
 
@@ -111,13 +119,16 @@ export default function ForestWizardGame() {
   const keysRef = useRef<Set<string>>(new Set());
   const inputRef = useRef({ x: 0, y: 0 });
   const pauseRef = useRef(false);
-  const apiRef = useRef<{ cast: () => void; reset: () => void } | null>(null);
+  const apiRef = useRef<{ cast: () => void; reset: () => void; changeZone: (zoneId: number) => void } | null>(null);
   const [ui, setUi] = useState<UiState>(gameRef.current.player);
   const [paused, setPaused] = useState(false);
+  const [zonePickerOpen, setZonePickerOpen] = useState(false);
+  const [unlockedZones, setUnlockedZones] = useState<number[]>([1]);
   const [lootToasts, setLootToasts] = useState<Array<{ id: number; text: string; rarity?: Rarity; color?: string }>>([]);
   const [levelFlash, setLevelFlash] = useState<number | null>(null);
   const [joystick, setJoystick] = useState({ x: 0, y: 0 });
   const toastId = useRef(0);
+  const unlockedZonesRef = useRef(new Set([1]));
 
   const addToast = useCallback((text: string, rarity?: Rarity, color?: string) => {
     const id = toastId.current++;
@@ -168,7 +179,7 @@ export default function ForestWizardGame() {
       burst(game.player.x + dx * 20, game.player.y + dy * 20, '#f7d881', 5);
     };
     const reset = () => {
-      gameRef.current = makeGame();
+      gameRef.current = makeGame(game.zoneId);
       Object.assign(game, gameRef.current);
       setUi(game.player);
       setLootToasts([]);
@@ -176,7 +187,32 @@ export default function ForestWizardGame() {
       pauseRef.current = false;
       setPaused(false);
     };
-    apiRef.current = { cast, reset };
+    const changeZone = (zoneId: number) => {
+      if (!unlockedZonesRef.current.has(zoneId) || zoneId === game.zoneId) return;
+      const previousPlayer = game.player;
+      const next = makeGame(zoneId, {
+        hp: previousPlayer.maxHp,
+        maxHp: previousPlayer.maxHp,
+        mana: previousPlayer.maxMana,
+        maxMana: previousPlayer.maxMana,
+        xp: previousPlayer.xp,
+        nextXp: previousPlayer.nextXp,
+        level: previousPlayer.level,
+        gold: previousPlayer.gold,
+        weapon: previousPlayer.weapon,
+        robe: previousPlayer.robe,
+        damage: previousPlayer.damage,
+      });
+      gameRef.current = next;
+      Object.assign(game, next);
+      setUi(game.player);
+      setLevelFlash(null);
+      setZonePickerOpen(false);
+      pauseRef.current = false;
+      setPaused(false);
+      addToast(`Entered ${ZONES[zoneId - 1].name}`, undefined, '#b9d79d');
+    };
+    apiRef.current = { cast, reset, changeZone };
 
     const update = (dt: number) => {
       if (pauseRef.current) return;
@@ -265,40 +301,44 @@ export default function ForestWizardGame() {
       game.texts = game.texts.filter((item) => item.life > 0);
       if (game.enemies.filter((enemy) => enemy.hp > 0).length < 9 && game.elapsed > 8) {
         const edge = random() > .5;
-        game.enemies.push({ id: game.spawnId++, kind: random() > .65 ? 'goblin' : 'slime', x: edge ? (random() > .5 ? 130 : 2470) : 150 + random() * 2300, y: edge ? 150 + random() * 1400 : (random() > .5 ? 120 : 1580), r: random() > .65 ? 19 : 22, hp: random() > .65 ? 64 : 45, maxHp: random() > .65 ? 64 : 45, speed: random() > .65 ? 72 : 50, aggro: 360, hitCooldown: 0, wander: 2, angle: random() * 6, hurt: 0 });
+        const kind: EnemyKind = random() > .65 ? 'goblin' : 'slime';
+        const enemyScale = (ZONES[game.zoneId - 1] ?? ZONES[0]).enemyMultiplier;
+        const baseHp = kind === 'goblin' ? 64 : 45;
+        game.enemies.push({ id: game.spawnId++, kind, x: edge ? (random() > .5 ? 130 : 2470) : 150 + random() * 2300, y: edge ? 150 + random() * 1400 : (random() > .5 ? 120 : 1580), r: kind === 'goblin' ? 19 : 22, hp: Math.round(baseHp * enemyScale), maxHp: Math.round(baseHp * enemyScale), speed: (kind === 'goblin' ? 72 : 50) * (1 + (game.zoneId - 1) * .04), aggro: 360 + (game.zoneId - 1) * 18, hitCooldown: 0, wander: 2, angle: random() * 6, hurt: 0 });
       }
     };
 
     const draw = () => {
       context.clearRect(0, 0, viewW, viewH);
       const player = game.player;
+      const zone = ZONES[game.zoneId - 1] ?? ZONES[0];
       const worldViewW = viewW / CAMERA_ZOOM;
       const worldViewH = viewH / CAMERA_ZOOM;
       const camX = clamp(game.player.x - worldViewW / 2, 0, WORLD.width - worldViewW);
       const camY = clamp(game.player.y - worldViewH / 2, 0, WORLD.height - worldViewH);
       context.save(); context.scale(CAMERA_ZOOM, CAMERA_ZOOM); context.translate(-camX, -camY);
-      context.fillStyle = '#163f39'; context.fillRect(camX, camY, worldViewW, worldViewH);
+      context.fillStyle = zone.ground[0]; context.fillRect(camX, camY, worldViewW, worldViewH);
       const tile = 64; const startX = Math.floor(camX / tile) * tile; const startY = Math.floor(camY / tile) * tile;
       for (let x = startX; x < camX + worldViewW + tile; x += tile) for (let y = startY; y < camY + worldViewH + tile; y += tile) {
-        context.fillStyle = ((x / tile + y / tile) % 2 === 0) ? '#1b4a3e' : '#1d4d40'; context.fillRect(x, y, tile + 1, tile + 1);
+        context.fillStyle = ((x / tile + y / tile) % 2 === 0) ? zone.ground[0] : zone.ground[1]; context.fillRect(x, y, tile + 1, tile + 1);
         context.fillStyle = 'rgba(143, 184, 111, .09)'; context.beginPath(); context.arc(x + 15 + ((y / 7) % 19), y + 24, 1.4, 0, Math.PI * 2); context.fill();
       }
       // Moonlit paths and pond.
-      context.fillStyle = '#8a805b'; context.globalAlpha = .18; context.beginPath(); context.moveTo(1260, 1700); context.bezierCurveTo(1160, 1300, 1380, 1110, 1300, 850); context.bezierCurveTo(1280, 590, 1410, 290, 1560, 0); context.lineTo(1680, 0); context.bezierCurveTo(1490, 340, 1430, 580, 1450, 850); context.bezierCurveTo(1500, 1180, 1340, 1390, 1400, 1700); context.closePath(); context.fill();
-      context.fillStyle = '#285f68'; context.beginPath(); context.ellipse(400, 320, 190, 90, -.2, 0, Math.PI * 2); context.fill(); context.globalAlpha = 1;
+      context.fillStyle = zone.path; context.globalAlpha = .18; context.beginPath(); context.moveTo(1260, 1700); context.bezierCurveTo(1160, 1300, 1380, 1110, 1300, 850); context.bezierCurveTo(1280, 590, 1410, 290, 1560, 0); context.lineTo(1680, 0); context.bezierCurveTo(1490, 340, 1430, 580, 1450, 850); context.bezierCurveTo(1500, 1180, 1340, 1390, 1400, 1700); context.closePath(); context.fill();
+      context.fillStyle = zone.pond; context.beginPath(); context.ellipse(400, 320, 190, 90, -.2, 0, Math.PI * 2); context.fill(); context.globalAlpha = 1;
       context.strokeStyle = 'rgba(151, 220, 209, .25)'; context.lineWidth = 3; context.stroke();
       game.obstacles.forEach((obstacle) => {
         if (obstacle.type === 'tree') {
           context.fillStyle = 'rgba(3, 24, 24, .3)'; context.beginPath(); context.ellipse(obstacle.x, obstacle.y + 32, obstacle.r * .95, obstacle.r * .33, 0, 0, Math.PI * 2); context.fill();
           context.fillStyle = '#4e3329'; context.beginPath(); context.roundRect(obstacle.x - 12, obstacle.y - 4, 24, obstacle.r + 39, 8); context.fill();
-          context.fillStyle = '#102f30'; context.beginPath(); context.arc(obstacle.x - 21, obstacle.y - 25, obstacle.r * .7, 0, Math.PI * 2); context.arc(obstacle.x + 25, obstacle.y - 31, obstacle.r * .72, 0, Math.PI * 2); context.arc(obstacle.x, obstacle.y - 55, obstacle.r * .68, 0, Math.PI * 2); context.fill();
-          context.fillStyle = '#1d5750'; context.beginPath(); context.arc(obstacle.x - 17, obstacle.y - 29, obstacle.r * .56, 0, Math.PI * 2); context.arc(obstacle.x + 22, obstacle.y - 33, obstacle.r * .56, 0, Math.PI * 2); context.arc(obstacle.x, obstacle.y - 58, obstacle.r * .5, 0, Math.PI * 2); context.fill();
+          context.fillStyle = zone.treeDark; context.beginPath(); context.arc(obstacle.x - 21, obstacle.y - 25, obstacle.r * .7, 0, Math.PI * 2); context.arc(obstacle.x + 25, obstacle.y - 31, obstacle.r * .72, 0, Math.PI * 2); context.arc(obstacle.x, obstacle.y - 55, obstacle.r * .68, 0, Math.PI * 2); context.fill();
+          context.fillStyle = zone.treeMid; context.beginPath(); context.arc(obstacle.x - 17, obstacle.y - 29, obstacle.r * .56, 0, Math.PI * 2); context.arc(obstacle.x + 22, obstacle.y - 33, obstacle.r * .56, 0, Math.PI * 2); context.arc(obstacle.x, obstacle.y - 58, obstacle.r * .5, 0, Math.PI * 2); context.fill();
         } else if (obstacle.type === 'rock') {
           context.fillStyle = 'rgba(3,24,24,.25)'; context.beginPath(); context.ellipse(obstacle.x, obstacle.y + 15, obstacle.r * 1.1, 10, 0, 0, Math.PI * 2); context.fill();
           context.fillStyle = '#647671'; context.beginPath(); context.ellipse(obstacle.x, obstacle.y, obstacle.r, obstacle.r * .72, -.2, 0, Math.PI * 2); context.fill();
           context.fillStyle = '#8ea298'; context.beginPath(); context.ellipse(obstacle.x - 8, obstacle.y - 6, obstacle.r * .45, obstacle.r * .22, -.3, 0, Math.PI * 2); context.fill();
         } else {
-          context.fillStyle = '#2b6a4b'; context.beginPath(); context.arc(obstacle.x - 9, obstacle.y + 4, obstacle.r * .7, 0, Math.PI * 2); context.arc(obstacle.x + 9, obstacle.y + 1, obstacle.r * .67, 0, Math.PI * 2); context.fill();
+          context.fillStyle = zone.bush; context.beginPath(); context.arc(obstacle.x - 9, obstacle.y + 4, obstacle.r * .7, 0, Math.PI * 2); context.arc(obstacle.x + 9, obstacle.y + 1, obstacle.r * .67, 0, Math.PI * 2); context.fill();
           context.fillStyle = '#d7c874'; context.beginPath(); context.arc(obstacle.x + 2, obstacle.y - 9, 3, 0, Math.PI * 2); context.fill();
         }
       });
@@ -378,6 +418,28 @@ export default function ForestWizardGame() {
   };
   const resetJoystick = () => { inputRef.current = { x: 0, y: 0 }; setJoystick({ x: 0, y: 0 }); };
   const togglePause = () => { pauseRef.current = !pauseRef.current; setPaused(pauseRef.current); };
+  const currentZone = ZONES[gameRef.current.zoneId - 1] ?? ZONES[0];
+  const openZonePicker = () => { pauseRef.current = true; setPaused(true); setZonePickerOpen(true); };
+  const closeZonePicker = () => { setZonePickerOpen(false); pauseRef.current = false; setPaused(false); };
+  const selectZone = (zoneId: number) => {
+    const target = ZONES[zoneId - 1];
+    if (!target) return;
+    if (!unlockedZonesRef.current.has(zoneId)) {
+      if (zoneId > 1 && !unlockedZonesRef.current.has(zoneId - 1)) {
+        addToast(`Unlock Zone ${zoneId - 1} first`, undefined, '#d89481');
+        return;
+      }
+      if (ui.gold < target.unlockCost) {
+        addToast(`Need ${target.unlockCost - ui.gold} more gold`, undefined, '#e9a29a');
+        return;
+      }
+      gameRef.current.player.gold -= target.unlockCost;
+      unlockedZonesRef.current.add(zoneId);
+      setUnlockedZones(Array.from(unlockedZonesRef.current));
+      addToast(`${target.name} unlocked`, undefined, '#f1c861');
+    }
+    apiRef.current?.changeZone(zoneId);
+  };
 
   return (
     <main className="game-shell" data-testid="game-shell">
@@ -387,6 +449,11 @@ export default function ForestWizardGame() {
           <div className="game-brand" style={{ color: '#f6d779', fontFamily: 'var(--app-font-serif)', fontSize: 23, lineHeight: 1 }}>
             Forest Wizard <span style={{ color: '#a9c79c', fontFamily: 'var(--app-font-sans)', fontSize: 12, letterSpacing: '.13em', textTransform: 'uppercase' }}>RPG</span>
             <div className="brand-subtitle" style={{ color: 'rgba(215,230,193,.65)', fontFamily: 'var(--app-font-mono)', fontSize: 10, marginTop: 8, letterSpacing: '.06em' }}>THE MOONLIT CLEARING</div>
+            <button className="zone-chip" data-testid="button-zone-picker" onClick={openZonePicker} aria-label={`Open zones. Current zone ${currentZone.id}`}>
+              <MapIcon size={15} />
+              <span><b>ZONE {currentZone.id}</b><strong>{currentZone.name}</strong></span>
+              <span className="zone-chip-arrow">VIEW</span>
+            </button>
           </div>
           <div className="status-grid" style={{ display: 'flex', gap: 12, alignItems: 'start' }}>
             <div className="glass-panel status-card" style={{ width: 196, padding: '10px 12px', borderRadius: 13 }}>
@@ -419,6 +486,26 @@ export default function ForestWizardGame() {
           <div className="joystick-base" data-testid="control-joystick" onPointerMove={updateJoystick} onPointerDown={updateJoystick} onPointerUp={resetJoystick} onPointerCancel={resetJoystick} onPointerLeave={resetJoystick}><div className="joystick-knob" style={{ transform: `translate(${joystick.x}px, ${joystick.y}px)` }} /></div>
           <button className="cast-button" data-testid="button-cast-touch" onPointerDown={(event) => { event.preventDefault(); apiRef.current?.cast(); }} aria-label="Cast spell"><Sparkles size={30} strokeWidth={1.7} /></button>
         </div>
+         {zonePickerOpen && <div className="zone-picker-scrim" data-testid="zone-picker">
+           <section className="zone-picker glass-panel" role="dialog" aria-modal="true" aria-labelledby="zone-picker-title">
+             <div className="zone-picker-head">
+               <div><div className="zone-kicker">THE MAP OF THE GROVE</div><h2 id="zone-picker-title">Choose a zone</h2><p>Spend gold to open deeper paths. Your level, gear, and gold carry forward.</p></div>
+               <button className="hud-button" onClick={closeZonePicker} aria-label="Close zones"><X size={17} /></button>
+             </div>
+             <div className="zone-list">
+               {ZONES.map((zone) => {
+                 const unlocked = unlockedZones.includes(zone.id);
+                 const current = currentZone.id === zone.id;
+                 const canAfford = ui.gold >= zone.unlockCost;
+                 return <button key={zone.id} className={`zone-option${current ? ' is-current' : ''}${!unlocked ? ' is-locked' : ''}`} data-testid={`zone-option-${zone.id}`} onClick={() => selectZone(zone.id)} disabled={current}>
+                   <span className="zone-swatch" style={{ background: `linear-gradient(135deg, ${zone.ground[0]}, ${zone.pond})` }}><span>{zone.id}</span></span>
+                   <span className="zone-copy"><strong>{zone.name}</strong><small>{zone.subtitle}</small><em>{zone.enemyMultiplier > 1 ? `${Math.round((zone.enemyMultiplier - 1) * 100)}% tougher enemies` : 'A safe place to begin'}</em></span>
+                   <span className={`zone-action${!unlocked && !canAfford ? ' needs-gold' : ''}`}>{current ? 'HERE' : unlocked ? 'ENTER' : <><LockKeyhole size={13} /> {zone.unlockCost}</>}</span>
+                 </button>;
+               })}
+             </div>
+           </section>
+         </div>}
         {paused && <div className="pause-scrim" style={{ position: 'absolute', inset: 0, display: 'grid', placeItems: 'center', zIndex: 15 }}><div className="glass-panel" style={{ width: 'min(360px, calc(100% - 40px))', padding: 28, textAlign: 'center', borderRadius: 18 }}><div style={{ color: '#f3d581', fontFamily: 'var(--app-font-serif)', fontSize: 32, marginBottom: 5 }}>A quiet moment</div><p style={{ color: '#bed0b3', fontFamily: 'var(--app-font-mono)', fontSize: 11, lineHeight: 1.7, margin: '0 0 19px' }}>The clearing waits beneath the moon.</p><div style={{ display: 'flex', justifyContent: 'center', gap: 9 }}><button className="hud-button" data-testid="button-resume" onClick={togglePause} style={{ width: 120, display: 'flex', gap: 7, fontSize: 12 }}><Play size={14} /> Resume</button><button className="hud-button" data-testid="button-reset" onClick={() => apiRef.current?.reset()} aria-label="Reset adventure"><RotateCcw size={15} /></button></div></div></div>}
       </div>
     </main>

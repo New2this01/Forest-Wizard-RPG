@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { ChevronUp, Gem, LockKeyhole, Map as MapIcon, Pause, Play, RotateCcw, Shield, Sparkles, WandSparkles, X } from 'lucide-react';
+import { ChevronUp, Gem, LockKeyhole, Map as MapIcon, Pause, Play, RotateCcw, Shield, Smartphone, Sparkles, WandSparkles, X } from 'lucide-react';
 
 type Rarity = 'Common' | 'Uncommon' | 'Rare' | 'Epic' | 'Legendary' | 'Mythic';
 type EnemyKind = 'slime' | 'goblin';
@@ -21,11 +21,17 @@ type FloatText = { x: number; y: number; value: string; color: string; life: num
 type GameState = {
   player: UiState & { x: number; y: number; r: number; lastDx: number; lastDy: number; hurt: number };
   enemies: Enemy[]; projectiles: Projectile[]; pickups: Pickup[]; particles: Particle[]; texts: FloatText[];
-  obstacles: Obstacle[]; elapsed: number; spawnId: number; zoneId: number;
+  obstacles: Obstacle[]; elapsed: number; spawnId: number; zoneId: number; bounds: { width: number; height: number };
 };
 
 const WORLD = { width: 2600, height: 1700 };
 const CAMERA_ZOOM = 0.56;
+const ZONE_BOUNDS: Record<number, { width: number; height: number }> = {
+  1: { width: 2000, height: 1600 },
+  2: { width: 2200, height: 1600 },
+  3: { width: 2400, height: 1650 },
+  4: WORLD,
+};
 const ZONES = [
   { id: 1, name: 'Mosslight Grove', subtitle: 'The moonlit clearing', unlockCost: 0, enemyMultiplier: 1, ground: ['#1b4a3e', '#1d4d40'], path: '#8a805b', pond: '#285f68', treeDark: '#102f30', treeMid: '#1d5750', bush: '#2b6a4b' },
   { id: 2, name: 'Whispering Fen', subtitle: 'Where the reeds remember', unlockCost: 125, enemyMultiplier: 1.28, ground: ['#264c43', '#285247'], path: '#7e7960', pond: '#2f6570', treeDark: '#172f35', treeMid: '#28605b', bush: '#3d7655' },
@@ -49,22 +55,28 @@ const seeded = (seed: number) => {
 
 function createObstacles(zoneId = 1): Obstacle[] {
   const random = seeded(44 + zoneId * 917);
+  const bounds = ZONE_BOUNDS[zoneId] ?? WORLD;
+  const scaleX = bounds.width / WORLD.width;
+  const scaleY = bounds.height / WORLD.height;
+  const scale = Math.min(scaleX, scaleY);
+  const point = (x: number, y: number, r: number, type: Obstacle['type']): Obstacle => ({ x: x * scaleX, y: y * scaleY, r: r * scale, type });
   const obstacles: Obstacle[] = [
-    { x: 420, y: 350, r: 50, type: 'tree' }, { x: 610, y: 1240, r: 58, type: 'tree' },
-    { x: 2120, y: 360, r: 62, type: 'tree' }, { x: 2250, y: 1170, r: 52, type: 'tree' },
-    { x: 1080, y: 280, r: 42, type: 'tree' }, { x: 1460, y: 1420, r: 56, type: 'tree' },
-    { x: 780, y: 700, r: 34, type: 'rock' }, { x: 1860, y: 580, r: 43, type: 'rock' },
-    { x: 390, y: 980, r: 32, type: 'rock' }, { x: 2070, y: 920, r: 36, type: 'rock' },
+    point(420, 350, 50, 'tree'), point(610, 1240, 58, 'tree'),
+    point(2120, 360, 62, 'tree'), point(2250, 1170, 52, 'tree'),
+    point(1080, 280, 42, 'tree'), point(1460, 1420, 56, 'tree'),
+    point(780, 700, 34, 'rock'), point(1860, 580, 43, 'rock'),
+    point(390, 980, 32, 'rock'), point(2070, 920, 36, 'rock'),
   ];
   for (let i = 0; i < 28; i += 1) {
-    const x = 90 + random() * 2420; const y = 80 + random() * 1540;
-    if (distance({ x, y }, { x: 1300, y: 850 }) > 320) obstacles.push({ x, y, r: 18 + random() * 14, type: 'bush' });
+    const x = 90 + random() * Math.max(180, bounds.width - 180); const y = 80 + random() * Math.max(160, bounds.height - 160);
+    if (distance({ x, y }, { x: bounds.width / 2, y: bounds.height / 2 }) > 230) obstacles.push({ x, y, r: 18 + random() * 14, type: 'bush' });
   }
   return obstacles;
 }
 
 function makeGame(zoneId = 1, playerOverrides: Partial<GameState['player']> = {}): GameState {
   const zone = ZONES[zoneId - 1] ?? ZONES[0];
+  const bounds = ZONE_BOUNDS[zone.id] ?? WORLD;
   const random = seeded(912 + zoneId * 139);
   const obstacles = createObstacles(zone.id);
   const enemies: Enemy[] = [];
@@ -73,7 +85,7 @@ function makeGame(zoneId = 1, playerOverrides: Partial<GameState['player']> = {}
     { x: 1780, y: 380 }, { x: 2180, y: 650 }, { x: 2260, y: 1290 }, { x: 1740, y: 1240 },
     { x: 480, y: 1380 }, { x: 840, y: 1450 }, { x: 1960, y: 900 }, { x: 380, y: 840 },
   ];
-  spots.forEach((spot, index) => {
+  spots.map((spot) => ({ x: spot.x * bounds.width / WORLD.width, y: spot.y * bounds.height / WORLD.height })).forEach((spot, index) => {
     const kind: EnemyKind = index % 3 === 0 ? 'goblin' : 'slime';
     const enemyScale = zone.enemyMultiplier;
     enemies.push({
@@ -84,8 +96,8 @@ function makeGame(zoneId = 1, playerOverrides: Partial<GameState['player']> = {}
     });
   });
   return {
-    player: { r: 17, hp: 100, maxHp: 100, mana: 100, maxMana: 100, xp: 0, nextXp: 100, level: 1, gold: 42, weapon: 'Ashwood Wand', robe: 'Mossweave Robe', damage: 22, ...playerOverrides, x: 1300, y: 850, lastDx: 1, lastDy: 0, hurt: 0 },
-    enemies, projectiles: [], pickups: [], particles: [], texts: [], obstacles, elapsed: 0, spawnId: 100, zoneId: zone.id,
+    player: { r: 17, hp: 100, maxHp: 100, mana: 100, maxMana: 100, xp: 0, nextXp: 100, level: 1, gold: 42, weapon: 'Ashwood Wand', robe: 'Mossweave Robe', damage: 22, ...playerOverrides, x: bounds.width / 2, y: bounds.height / 2, lastDx: 1, lastDy: 0, hurt: 0 },
+    enemies, projectiles: [], pickups: [], particles: [], texts: [], obstacles, elapsed: 0, spawnId: 100, zoneId: zone.id, bounds,
   };
 }
 
@@ -93,9 +105,9 @@ function blocked(x: number, y: number, radius: number, obstacles: Obstacle[]) {
   return obstacles.some((obstacle) => Math.hypot(x - obstacle.x, y - obstacle.y) < radius + obstacle.r * (obstacle.type === 'tree' ? .65 : .78));
 }
 
-function moveWithCollision(point: { x: number; y: number }, dx: number, dy: number, radius: number, obstacles: Obstacle[]) {
-  const nx = clamp(point.x + dx, radius + 28, WORLD.width - radius - 28);
-  const ny = clamp(point.y + dy, radius + 28, WORLD.height - radius - 28);
+function moveWithCollision(point: { x: number; y: number }, dx: number, dy: number, radius: number, obstacles: Obstacle[], bounds: { width: number; height: number }) {
+  const nx = clamp(point.x + dx, radius + 28, bounds.width - radius - 28);
+  const ny = clamp(point.y + dy, radius + 28, bounds.height - radius - 28);
   if (!blocked(nx, point.y, radius, obstacles)) point.x = nx;
   if (!blocked(point.x, ny, radius, obstacles)) point.y = ny;
 }
@@ -223,7 +235,7 @@ export default function ForestWizardGame() {
       let mx = inputRef.current.x || keyboardX; let my = inputRef.current.y || keyboardY;
       const length = Math.hypot(mx, my);
       if (length > 1) { mx /= length; my /= length; }
-      if (Math.hypot(mx, my) > .08) { player.lastDx = mx; player.lastDy = my; moveWithCollision(player, mx * 185 * dt, my * 185 * dt, player.r, game.obstacles); }
+      if (Math.hypot(mx, my) > .08) { player.lastDx = mx; player.lastDy = my; moveWithCollision(player, mx * 185 * dt, my * 185 * dt, player.r, game.obstacles, game.bounds); }
       player.hurt = Math.max(0, player.hurt - dt);
       player.mana = Math.min(player.maxMana, player.mana + dt * 8);
 
@@ -237,11 +249,11 @@ export default function ForestWizardGame() {
           if (enemy.wander <= 0) { enemy.angle += (random() - .5) * 2.7; enemy.wander = 1.5 + random() * 3; }
           ex = Math.cos(enemy.angle) * .38; ey = Math.sin(enemy.angle) * .38;
         }
-        moveWithCollision(enemy, ex * enemy.speed * dt, ey * enemy.speed * dt, enemy.r, game.obstacles);
+        moveWithCollision(enemy, ex * enemy.speed * dt, ey * enemy.speed * dt, enemy.r, game.obstacles, game.bounds);
         if (range < enemy.r + player.r + 4 && enemy.hitCooldown <= 0) {
           enemy.hitCooldown = 1.05; player.hp = Math.max(0, player.hp - (enemy.kind === 'goblin' ? 9 : 6)); player.hurt = .3;
           text(player.x, player.y - 30, `-${enemy.kind === 'goblin' ? 9 : 6}`, '#f18b78'); burst(player.x, player.y, '#f18b78', 5);
-          if (player.hp <= 0) { player.hp = player.maxHp; player.mana = player.maxMana; player.x = 1300; player.y = 850; text(player.x, player.y - 45, 'The grove restores you', '#f7d881'); }
+          if (player.hp <= 0) { player.hp = player.maxHp; player.mana = player.maxMana; player.x = game.bounds.width / 2; player.y = game.bounds.height / 2; text(player.x, player.y - 45, 'The grove restores you', '#f7d881'); }
         }
       });
 
@@ -314,8 +326,10 @@ export default function ForestWizardGame() {
       const zone = ZONES[game.zoneId - 1] ?? ZONES[0];
       const worldViewW = viewW / CAMERA_ZOOM;
       const worldViewH = viewH / CAMERA_ZOOM;
-      const camX = clamp(game.player.x - worldViewW / 2, 0, WORLD.width - worldViewW);
-      const camY = clamp(game.player.y - worldViewH / 2, 0, WORLD.height - worldViewH);
+      const camX = clamp(game.player.x - worldViewW / 2, 0, game.bounds.width - worldViewW);
+      const camY = clamp(game.player.y - worldViewH / 2, 0, game.bounds.height - worldViewH);
+      const centerX = game.bounds.width / 2;
+      const centerY = game.bounds.height / 2;
       context.save(); context.scale(CAMERA_ZOOM, CAMERA_ZOOM); context.translate(-camX, -camY);
       context.fillStyle = zone.ground[0]; context.fillRect(camX, camY, worldViewW, worldViewH);
       const tile = 64; const startX = Math.floor(camX / tile) * tile; const startY = Math.floor(camY / tile) * tile;
@@ -324,8 +338,8 @@ export default function ForestWizardGame() {
         context.fillStyle = 'rgba(143, 184, 111, .09)'; context.beginPath(); context.arc(x + 15 + ((y / 7) % 19), y + 24, 1.4, 0, Math.PI * 2); context.fill();
       }
       // Moonlit paths and pond.
-      context.fillStyle = zone.path; context.globalAlpha = .18; context.beginPath(); context.moveTo(1260, 1700); context.bezierCurveTo(1160, 1300, 1380, 1110, 1300, 850); context.bezierCurveTo(1280, 590, 1410, 290, 1560, 0); context.lineTo(1680, 0); context.bezierCurveTo(1490, 340, 1430, 580, 1450, 850); context.bezierCurveTo(1500, 1180, 1340, 1390, 1400, 1700); context.closePath(); context.fill();
-      context.fillStyle = zone.pond; context.beginPath(); context.ellipse(400, 320, 190, 90, -.2, 0, Math.PI * 2); context.fill(); context.globalAlpha = 1;
+      context.fillStyle = zone.path; context.globalAlpha = .18; context.beginPath(); context.moveTo(centerX - 40, game.bounds.height); context.bezierCurveTo(centerX - 140, game.bounds.height * .76, centerX + 80, centerY + 200, centerX, centerY); context.bezierCurveTo(centerX - 20, centerY - 260, centerX + 100, game.bounds.height * .2, centerX + 260, 0); context.lineTo(centerX + 380, 0); context.bezierCurveTo(centerX + 190, game.bounds.height * .2, centerX + 130, centerY - 260, centerX + 150, centerY); context.bezierCurveTo(centerX + 200, centerY + 300, centerX + 40, game.bounds.height * .78, centerX + 140, game.bounds.height); context.closePath(); context.fill();
+      context.fillStyle = zone.pond; context.beginPath(); context.ellipse(game.bounds.width * .16, game.bounds.height * .19, 190, 90, -.2, 0, Math.PI * 2); context.fill(); context.globalAlpha = 1;
       context.strokeStyle = 'rgba(151, 220, 209, .25)'; context.lineWidth = 3; context.stroke();
       game.obstacles.forEach((obstacle) => {
         if (obstacle.type === 'tree') {
@@ -444,6 +458,13 @@ export default function ForestWizardGame() {
   return (
     <main className="game-shell" data-testid="game-shell">
       <canvas ref={canvasRef} className="game-canvas" data-testid="game-canvas" aria-label="Forest Wizard playable world" />
+      <div className="portrait-only-overlay" data-testid="portrait-only-overlay">
+        <div className="portrait-only-card glass-panel">
+          <Smartphone size={30} />
+          <h2>Turn your device upright</h2>
+          <p>Forest Wizard is built for portrait play so the full grove and touch controls stay visible.</p>
+        </div>
+      </div>
       <div className="hud-layer">
         <section className="hud-top" style={{ position: 'absolute', top: 0, left: 0, right: 0, padding: '18px 24px', display: 'flex', justifyContent: 'space-between', alignItems: 'start', gap: 16 }}>
           <div className="game-brand" style={{ color: '#f6d779', fontFamily: 'var(--app-font-serif)', fontSize: 23, lineHeight: 1 }}>
